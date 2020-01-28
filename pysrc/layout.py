@@ -1,19 +1,56 @@
 import PySimpleGUI as sg
-from pysrc.config import Config
-c = Config()
+from pysrc import config
+import sys, os
+resources = os.path.join(os.getenv("HOME"), "pasi/resources/")
 
-class LayOuts:
-    """
-    Storage class that holds all the PySimpleGUI compatible
-    layout frames and widgets that `sg.Window` will use to 
-    render gui.
-    """
+class MainWindowLayout:
+    width = config.pasi('width')
+    height = config.pasi('height')
+
+    def menu_bar(self):
+        layout = sg.Menu(
+            [["&File", ["&Job Planner", "&Shooting Interface"]]],
+            tearoff=False,
+            key="main_menu")
+        return layout
+
+    def main_layout(self):
+        layout = [
+            [self.menu_bar(), sg.Text('', size=(0,5))],
+            [sg.Column(layout=
+            [
+                [sg.Image(f"{resources}/logo.png", pad=(0,10))],
+                
+            ]
+            , justification="center", )]]
+
+        return layout
+
+class JobPlannerLayout:
+    width = config.pasi('width')
+    height = config.pasi('width')
+
+    def menu_bar(self):
+        layout = sg.Menu([["&Help"]],
+                         tearoff=False,
+                         key="main_menu")
+        return layout
+
+    def main_layout(self):
+        layout = [[
+            self.menu_bar()
+        ]]
+
+        return layout
+
+class ShootingLayout:
+    checkmark = u'\u2713'
+
     def main_menu(self):
         layout = sg.Menu(
-            [['File', ['View Logs', 'Danger Zone']],['Edit', ['Change Expected Amount']], ['Simulation', ['Run']]],
+            [["&File", ["&View Logs", "&Changed Expected Amount"]]],
             tearoff=False,
-            key='main_menu')
-
+            key="main_menu")
         return layout
 
     def anticipated_layout(self):
@@ -33,7 +70,7 @@ class LayOuts:
         return layout
 
     def expected_layout(self):
-        expected = c.switches("expected")
+        expected = config.switches("expected")
         layout = [[sg.Text('Expected', key='label_expected')],
                   [
                       sg.Frame('',
@@ -50,73 +87,69 @@ class LayOuts:
         return layout
 
     def column1_layout(self):
-        layout = sg.Column(layout=[
-            [
+        layout = sg.Column(
+            layout=[[
                 sg.Button("Inventory",
                           bind_return_key=True,
                           size=(20, 3),
-                          key='button_inventory'),
-                sg.Frame('', border_width=0, layout=self.anticipated_layout()),
-                sg.Frame('', border_width=0, layout=self.expected_layout())
+                          key="button_inventory")
             ],
             [
-                sg.Multiline(default_text='',
-                             size=(51, 15),
-                             key='multiline_default_output')
+                sg.Frame('', border_width=0, layout=[[]],pad=(0,100))
             ],
-        ])
+            [
+                sg.Button("Pre-Arm",
+                            key="button_prearm",
+                            size=(20, 3),
+                            disabled=False)
+            ],
+            [
+                sg.Button("Arm",
+                            key="button_arm",
+                            disabled=False,
+                            size=(20, 3))
+            ],
+            [
+                sg.Button("Fire",
+                            disabled=False,
+                            key="button_fire",
+                            size=(20, 3),
+                            image_filename="resources/button.png",
+                            image_subsample=4,
+                            focus=False,
+                            button_color=("yellow", "black"),
+                            border_width=0)
+            ]])
 
         return layout
 
     def column2_layout(self):
-        layout = sg.Column(layout=[
-            [
-                sg.ProgressBar(1000,
-                               orientation='h',
-                               size=(33, 20),
-                               key='progressbar',
-                               visible=False)
-            ],
-            [
-                sg.Multiline(default_text='',
-                             size=(25, 30),
-                             key='multiline_switch_canvas')
-            ],
+        layout = sg.Column(layout=[[
+            sg.Frame('', border_width=0, layout=self.anticipated_layout()),
+            sg.Frame('', border_width=0, layout=self.expected_layout())
         ],
-                           justification='center')
+        [
+            sg.Listbox(values=[],
+                        size=(20, 20),
+                        key='switch_list',
+                        enable_events=True)
+        ]])
+        return layout
 
+    def debug_area(self):
+        width = int(config.pasi('width')) / 17
+        height = int(config.pasi('height')) / 100
+        print(width, height)
+        layout = sg.Multiline(default_text='',
+                              size=(int(width), height),
+                              key="debug_area",
+                              do_not_clear=True)
         return layout
 
     def main_layout(self):
-        layout = [
-            [self.main_menu(),
-             self.column1_layout(),
-             self.column2_layout()],
-        ]
-        return layout
-
-    def simulation_layout(self):
         layout = [[
-            sg.Column(layout=[[
-                sg.Text("Awaiting Connection...",
-                        key='label_connection_status',
-                        size=(20, 1)),
-            ], [
-                sg.Multiline(key='ml_main', size=(30, 10)),
-            ], [
-            ], [sg.Button("Start Inventory", key='button_inventory'),
-                sg.Exit()]]),
-            sg.Column(layout=[[
-                sg.Text('Server Mode: ', size=(20,1))],[
-                sg.Text('None Detected', size=(20,1), key='label_server_mode')],[sg.Text("Switch Status")],
-                [sg.Multiline(key='ml_status', size=(15,10)),]]
-            )
-            ]]
-        return layout
-
-    def vol_temp_layout(self):
-        layout = [
-            [sg.Text("Voltage", size=(10,1)), sg.Text('Temperature', size=(10,1))],
-            [sg.Text("N/A", key="label_voltage", size=(10,1)), sg.Text('N/A', size=(10,1),key='label_temperature')]
-        ]
+            self.main_menu(),
+            self.column1_layout(),
+            self.column2_layout()
+        ], [self.debug_area()]]
         return layout

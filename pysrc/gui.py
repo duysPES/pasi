@@ -3,8 +3,6 @@ from pysrc.config import Config
 from pysrc.layout import LayOuts
 import serial
 from pysrc.lisc import LISC
-from pysrc.switch_sim import SimClient, Simulator
-from pysrc.states_sim import SimStates, SimStateMachine
 from multiprocessing import Process, Queue
 import time
 from pysrc.thread import InfoType, ConnMode
@@ -13,7 +11,6 @@ from pysrc.switch import Switch
 from pysrc.commands import Status, Commands
 import pysrc.log as log
 from pysrc.log import LogType
-from pysrc.credentials import check_credentials
 
 from pysrc.log import LOG_PATH
 
@@ -24,7 +21,7 @@ sg.change_look_and_feel('GreenTan')
 log.Log.clear()
 
 
-class SSI:
+class Pasi:
     """
     Main Program handler. Controls GUI that users will be using
     to inventory addressable switches, and running switch simulator
@@ -47,7 +44,7 @@ class SSI:
                                 layout=self.layout,
                                 default_element_size=(40, 1),
                                 grab_anywhere=False,
-                                size=(c.ssi("width"), c.ssi("height")),
+                                size=(c.pasi("width"), c.pasi("height")),
                                 finalize=True)
         self.set_window_title()
 
@@ -90,7 +87,8 @@ class SSI:
         resets all elements to their default values
         """
 
-        self.send_to_main("", clear=True)
+        # self.send_to_main("", clear=True)
+        self.append_main(msg="", clear=True)
         self.send_to_debug("", clear=True)
         self.update_anticipated(0)
 
@@ -111,17 +109,30 @@ class SSI:
         except Exception:
             ele.DisplayText = msg
 
-    def send_to_main(self, msg, clear=False):
+    # def send_to_main(self, msg, clear=False):
+    #     """
+    #     ```
+    #     input: str, bool
+    #     return: None
+    #     ```
+    #     helper method to update main multiline element in
+    #     GUI, where Switch information is posted.
+    #     """
+    #     widget = self.window['multiline_switch_canvas']
+    #     self.send_to_multiline(widget=widget, msg=msg, clear=clear)
+
+    def append_main(self, msg, clear=False):
         """
-        ```
-        input: str, bool
-        return: None
-        ```
-        helper method to update main multiline element in 
-        GUI, where Switch information is posted.
+        helper method to update main listbox with switch address
         """
-        widget = self.window['multiline_switch_canvas']
-        self.send_to_multiline(widget=widget, msg=msg, clear=clear)
+        widget = self.window['switch_list']
+
+        if clear:
+            widget.update([])
+            return None
+        cur_vals = widget.GetListValues()
+        cur_vals.append(msg)
+        widget.update(cur_vals)
 
     def send_to_debug(self, msg, clear=False):
         """
@@ -132,7 +143,7 @@ class SSI:
         helper method to update multiline that serves as debug output.
 
         """
-        widget = self.window['multiline_default_output']
+        widget = self.window['debug_area']
         self.send_to_multiline(widget=widget, msg=msg, clear=clear)
 
     def update_anticipated(self, num):
@@ -156,14 +167,8 @@ class SSI:
         Set window title.
 
         """
-        msg = "SSI v{} {}".format(c.ssi("version"), msg)
-        self.window.TKroot.title(msg)
-
-    def set_window_title_dangerous(self, msg=""):
-        """
-        Sets window title with prepended DANGER
-        """
-        msg = f"SSI v{c.ssi('version')} DANGER: {msg}"
+        print(c.pasi('version'))
+        msg = "PASI v{} {}".format(c.pasi("version"), msg)
         self.window.TKroot.title(msg)
 
     def loop(self):
@@ -180,84 +185,25 @@ class SSI:
         """
 
         inventory = False
-        dangerzone = False
         # set both multiline elements to autoscroll
-        self.window.FindElement(
-            key='multiline_default_output').Autoscroll = True
+        self.window.FindElement(key='debug_area').Autoscroll = True
 
-        self.window.FindElement(
-            key='multiline_switch_canvas').Autoscroll = True
+        # self.window.FindElement(
+        #     key='multiline_switch_canvas').Autoscroll = True
 
         while True:
-            event, values = self.window.read(timeout=c.ssi('async_timeout'))
+            event, values = self.window.read(timeout=c.pasi('async_timeout'))
             if event != '__TIMEOUT__':
                 pass
             if event in (None, 'Quit'):
-
                 break
 
-            if dangerzone:
-                from pysrc.danger import DangerousLISC
-                log.Log.clear(LogType.gui)
-                self.send_to_debug("", clear=True)
-                self.send_to_main("", clear=True)
-                self.log("Beginning Dangerous inventory run", 'warning')
-                inventory = True
-                self.set_window_title_dangerous()
-
-                expected_switches = self.read_expected()
-                self.send_to_debug(f"Expecting {expected_switches} switches..")
-
-                port = str(c.lisc('port'))
-                baudrate = int(c.lisc('baudrate'))
-                with DangerousLISC(port=port, baudrate=baudrate,
-                                   timeout=3) as lisc:
-                    self.log("Spawning thread for dangerous inventory run",
-                             'warning')
-                    thread = Process(target=lisc.do_dangerous_inventory,
-                                     args=(self.inventory_queue,
-                                           expected_switches))
-                    thread.start()
-                dangerzone = False
-
-            if 'Danger Zone' in event:
-                layout = [[sg.Text("Please enter valid credentials")],
-                          [
-                              sg.Text("Username: "),
-                              sg.Input(key="username_input", password_char="*")
-                          ],
-                          [
-                              sg.Text("Password: "),
-                              sg.Input(key="password_input", password_char="*")
-                          ], [sg.Submit(size=(10, 1))],
-                          [sg.Text("", key="status_label", size=(20, 1))]]
-
-                win2 = sg.Window("Firing Override",
-                                 layout=layout,
-                                 size=(300, 150),
-                                 finalize=True)
-                while True:
-                    ev2, vals2 = win2.read()
-                    if ev2 is None or ev2 == "Exit":
-                        break
-
-                    if ev2 == "Submit":
-                        user = vals2['username_input']
-                        pwd = vals2['password_input']
-                        if check_credentials(user, pwd):
-                            dangerzone = True
-                            win2.close()
-                            break
-                        else:
-                            print("incorrect")
-                            win2['status_label']("Incorrect Credentials")
-
-            if 'Change Expected Amount' in event:
-                amnts = [x + 1 for x in range(30)]
+            if 'Changed Expected Amount' in event:
+                print("In here")
                 layout = [
                     [
                         # sg.Input("{}".format(cur_val), focus=True, key='input_box')
-                        sg.Spin(amnts,
+                        sg.Spin([x + 1 for x in range(30)],
                                 initial_value=c.switches('expected'),
                                 key='input_box',
                                 size=(50, 100),
@@ -267,7 +213,8 @@ class SSI:
                 ]
                 win2 = sg.Window("Edit Expected Amount",
                                  layout=layout,
-                                 size=(300, 300))
+                                 size=(300, 300),
+                                 finalize=True)
 
                 while True:
                     ev2, vals2 = win2.read()
@@ -282,24 +229,16 @@ class SSI:
                         win2.close()
                         break
 
-            if 'Run' == values['main_menu']:
-                self.send_to_debug(
-                    "Would normally start simulation server, but that has been disabled for now."
-                )
-                # self.log('Beginning simulation', 'info')
-                # simulator = Simulator(self)
-                # simulator.run()
-
             if 'View Logs' == values['main_menu']:
                 layout = [[
                     sg.Multiline("",
-                                 size=(c.ssi('width'), c.ssi('height')),
+                                 size=(c.pasi('width'), c.pasi('height')),
                                  key="log_view")
                 ]]
                 log_view = sg.Window("Logs",
                                      layout=layout,
                                      grab_anywhere=False,
-                                     size=(c.ssi("width"), c.ssi("height")),
+                                     size=(c.pasi("width"), c.pasi("height")),
                                      finalize=True)
                 prev_file_buf = ""
                 while True:
@@ -319,7 +258,8 @@ class SSI:
                 # clear elements
                 log.Log.clear(LogType.gui)
                 self.send_to_debug("", clear=True)
-                self.send_to_main("", clear=True)
+                # self.send_to_main("", clear=True)
+                self.append_main("", clear=True)
                 self.log("Beginning inventory run", 'info')
                 inventory = True
                 self.set_window_title()
@@ -373,8 +313,9 @@ class SSI:
                             if mode == ConnMode.MAIN:
                                 pos, addr = msg
                                 self.update_anticipated(num=int(pos))
-                                msg = "--> {}: [{}]".format(pos, addr)
-                                self.send_mode(mode, msg)
+                                msg = "{}: [{}]".format(pos, addr)
+
+                                self.append_main(msg, clear=False)
 
                         if info_type == InfoType.OTHER:
                             self.send_mode(mode, msg)
@@ -422,7 +363,8 @@ class SSI:
         if mode == ConnMode.DEBUG:
             self.send_to_debug(msg=payload, clear=False)
         elif mode == ConnMode.MAIN:
-            self.send_to_main(msg=payload, clear=False)
+            # self.send_to_main(msg=payload, clear=False)
+            print("FROM MAIN ", payload)
 
         elif mode == ConnMode.STATUS:
             status = Status(payload)

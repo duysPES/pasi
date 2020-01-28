@@ -10,7 +10,7 @@ class Config(configparser.ConfigParser):
     """
 
     # config_file_path = os.path.join(sys.path[0], 'config.ini')
-    config_file_path = os.path.join(os.getenv("HOME"), "svg/config.ini")
+    config_file_path = os.path.join(os.getenv("HOME"), "pasi/config.ini")
     """
     relative path to config file based on 
     where main.py is called.
@@ -25,15 +25,15 @@ class Config(configparser.ConfigParser):
         with open(self.config_file_path, "w") as conf:
             self.write(conf)
 
-    def ssi(self, section):
+    def pasi(self, section):
         """
-        Returns section values of SSI header in config.ini
+        Returns section values of PASI header in config.ini
 
         Input: str
         return: str
         """
 
-        return self['SSI'][section]
+        return self['PASI'][section]
 
     def lisc(self, section):
         """
