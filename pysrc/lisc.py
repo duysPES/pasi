@@ -5,6 +5,7 @@ from pysrc.switch import SwitchManager, Switch
 from pysrc.commands import Commands
 from pysrc.thread import ConnMode, InfoType, ConnPackage
 import pysrc.log as log
+from pysrc.thread import queuer
 
 
 class LISC(serial.Serial):
@@ -47,7 +48,7 @@ class LISC(serial.Serial):
 
         log.log(status)(msg=msg, to=log.LogType.gui)
 
-    def do_inventory(self, sender, num_switches):
+    def do_inventory(self, num_switches):
         """
         ```
         input: queue.Queue, int
@@ -88,13 +89,19 @@ class LISC(serial.Serial):
             self.log(f"Listening for broadcast [{tries}]", 'info')
             self.package.debug(f"Attempt={tries}")
             resp = self.listen(length)
+
             if len(resp) == 5 and resp is not None:
+                if not self.chksum_ok(resp):
+                    self.log(f"Broadcast checksum is incorrect", "error")
+                    tries -= 1
+                    resp = listen_broadcast(tries=tries)
                 return resp
             else:
                 tries -= 1
                 resp = listen_broadcast(tries=tries)
             return resp
 
+        sender = queuer.get('inventory')
         self.package.set_sender(sender)
         self.package.debug("Resetting LISC")
         self.reset()
@@ -154,12 +161,18 @@ class LISC(serial.Serial):
                 return b""
 
             response = self.listen(resp_len, clear_buffer=clear_buffer)
+            incoming_chksum = self.chksum_ok(response)
             self.log(
-                f"RX {Commands.prettify(response)}: {Commands.parse_packet(response)}",
+                f"RX {Commands.prettify(response)}: {Commands.parse_packet(response)}, CHKSUM: {incoming_chksum}",
                 'info')
+
+            if not incoming_chksum:
+                attempt += 1
+                continue
+
             body = response[3:-1]
 
-            # checking checksum
+            # checking to_send checksum
             if not self.chksum_ok(to_send):
                 attempt += 1
                 self.package.debug("Chksum incorrect")
@@ -213,22 +226,8 @@ class LISC(serial.Serial):
         if clear_buffer:
             self.read(self.inWaiting())
 
-        return self.read(n)
-        # now = time.time()
-        # buf = b""
-        # n = self.inWaiting()
-
-        # tracker = ""
-
-        # while time.time() - now <= timeout:
-        #     in_waiting = self.inWaiting()
-        #     if in_waiting > 0:
-        #         tracker += " . " * in_waiting
-        #         buf += self.read(in_waiting)
-        #         now = time.time()
-
-        # print(tracker)
-        # return buf
+        resp = self.read(n)
+        return resp
 
     def chksum_ok(self, data):
         """
@@ -241,6 +240,9 @@ class LISC(serial.Serial):
         if not isinstance(data, bytes):
             raise ValueError("Incoming data must be a bytes")
 
+        if len(data) == 0:
+            return False
+
         good_data = True
 
         supplied_chksum = data[-1]
@@ -250,11 +252,14 @@ class LISC(serial.Serial):
             calculated_chksum ^= data[idx]
 
         if calculated_chksum != supplied_chksum:
-            self.log(
-                f"Checksums do not match: calc: {calculated_chksum} != provided: {supplied_chksum}",
-                'warning')
+            errmsg = f"Checksums do not match: calc: {hex(calculated_chksum)} != provided: {hex(supplied_chksum)}",
+            self.log(errmsg, 'warning')
+            self.package.debug(errmsg)
             return not good_data
 
+        msg = f"Checksum OK"
+        self.log(msg, 'info')
+        self.package.debug(msg)
         return good_data
 
     def chksum(self, data):

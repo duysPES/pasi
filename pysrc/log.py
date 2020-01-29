@@ -4,7 +4,8 @@ import sys
 import os
 
 # LOG_PATH = os.path.join(sys.path[0], 'logs/')
-LOG_PATH = os.path.join(os.getenv("HOME"), "svg/logs/")
+LOG_PATH = os.path.join(os.getenv("HOME"), "pasi/logs/")
+
 
 class ServerLog:
     """

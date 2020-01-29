@@ -3,47 +3,51 @@ from pysrc import config
 import sys, os
 resources = os.path.join(os.getenv("HOME"), "pasi/resources/")
 
-class MainWindowLayout:
-    width = config.pasi('width')
-    height = config.pasi('height')
 
+class Layout:
+    width = int(config.pasi("width"))
+    height = int(config.pasi("height"))
+
+
+class MainWindowLayout(Layout):
     def menu_bar(self):
-        layout = sg.Menu(
-            [["&File", ["&Job Planner", "&Shooting Interface", "&Change Theme", ['&Dark', '&Light']]]],
-            tearoff=False,
-            key="main_menu")
-        return layout
-
-    def main_layout(self):
-        layout = [
-            [self.menu_bar(), sg.Text('', size=(0,5))],
-            [sg.Column(layout=
+        layout = sg.Menu([[
+            "&File",
             [
-                [sg.Image(f"{resources}/logo.png", pad=(0,10))],
-
+                "&Job Planner", "&Shooting Interface", "&Change Theme",
+                ['&Dark', '&Light']
             ]
-            , justification="center", )]]
-
-        return layout
-
-class JobPlannerLayout:
-    width = config.pasi('width')
-    height = config.pasi('width')
-
-    def menu_bar(self):
-        layout = sg.Menu([["&Help"]],
+        ]],
                          tearoff=False,
                          key="main_menu")
         return layout
 
     def main_layout(self):
-        layout = [[
-            self.menu_bar()
-        ]]
+        layout = [[self.menu_bar(), sg.Text('', size=(0, 5))],
+                  [
+                      sg.Column(
+                          layout=[
+                              [sg.Image(f"{resources}/logo.png", pad=(0, 10))],
+                          ],
+                          justification="center",
+                      )
+                  ]]
 
         return layout
 
-class ShootingLayout:
+
+class JobPlannerLayout(Layout):
+    def menu_bar(self):
+        layout = sg.Menu([["&Help"]], tearoff=False, key="main_menu")
+        return layout
+
+    def main_layout(self):
+        layout = [[self.menu_bar()]]
+
+        return layout
+
+
+class ShootingLayout(Layout):
     checkmark = u'\u2713'
 
     def main_menu(self):
@@ -79,8 +83,9 @@ class ShootingLayout:
                                    [
                                        sg.Text(str(expected),
                                                size=(2, 1),
-                                               font='any 16',
-                                               key='label_expected_amount')
+                                               font='fixedsys 16',
+                                               key='label_expected_amount'
+                                               )
                                    ],
                                ])
                   ]]
@@ -116,9 +121,6 @@ class ShootingLayout:
                     disabled=True,
                     key="button_fire",
                     size=(20, 3),
-                    # image_filename="resources/button.png",
-                    # image_subsample=4,
-                    # focus=False,
                     border_width=5)
             ]
         ])
@@ -126,26 +128,29 @@ class ShootingLayout:
         return layout
 
     def column2_layout(self):
-        layout = sg.Column(layout=[[
-            sg.Frame('', border_width=0, layout=self.anticipated_layout()),
-            sg.Frame('', border_width=0, layout=self.expected_layout())
-        ],
-        [
-            sg.Listbox(values=[],
-                        size=(20, 20),
-                        key='switch_list',
-                        enable_events=True)
-        ]])
+
+        layout = sg.Column(layout=[
+            [
+                sg.Frame('', border_width=0, layout=self.anticipated_layout()),
+                sg.Frame('', border_width=0, layout=self.expected_layout())
+
+            ],
+            [
+                sg.Listbox(values=[],
+                           size=(self.width//25, self.height//50),
+                           key='switch_list',
+                           enable_events=True,
+                           font=("fixedsys", '7'))
+            ]
+        ])
         return layout
 
     def debug_area(self):
-        width = int(config.pasi('width')) / 17
-        height = int(config.pasi('height')) / 100
-        print(width, height)
         layout = sg.Multiline(default_text='',
-                              size=(int(width), height),
+                              size=(self.width//15, self.height//100),
                               key="debug_area",
-                              do_not_clear=True)
+                              do_not_clear=True,
+                              disabled=True)
         return layout
 
     def main_layout(self):
@@ -154,4 +159,28 @@ class ShootingLayout:
             self.column1_layout(),
             self.column2_layout()
         ], [self.debug_area()]]
+        return layout
+
+
+class ViewLogLayout(Layout):
+    def main_layout(self):
+        layout = [[
+            sg.Multiline("",
+                         size=(self.width, self.height),
+                         key="log_view",
+                         disabled=True,
+                         font=("fixedsys", "5"))
+        ]]
+        return layout
+
+
+class ChangeExpectedAmountLayout(Layout):
+    def main_layout(self):
+        layout = [[sg.Text("Choose Expected Number of Switches")],
+                  [
+                      sg.Combo([x + 1 for x in range(50)],
+                               key='expected_combo',
+                               size=(50, 1),
+                               default_value=config.switches("expected"))
+                  ], [sg.Exit(bind_return_key=True)]]
         return layout

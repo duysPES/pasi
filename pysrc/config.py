@@ -67,6 +67,12 @@ class Config(configparser.ConfigParser):
 
         self.update(header="SWITCHES", section=section, value=value, dump=dump)
 
+    def get_theme(self):
+        """
+        helper method to return currently selected theme
+        """
+        return self.pasi("theme")
+
     def update_theme(self, theme_value, dump=True):
         valid = ["light", "dark"]
         if theme_value.lower() not in valid:

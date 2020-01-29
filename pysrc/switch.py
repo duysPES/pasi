@@ -101,7 +101,7 @@ class Switch:
         """
 
     def __repr__(self):
-        return f"Switch< {self.raw.hex().upper()} >"
+        return f"{self.position} Switch< {self.raw.hex().upper()} >"
 
     @property
     def raw_address(self):

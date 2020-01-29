@@ -1,6 +1,59 @@
 from enum import Enum
 from collections import deque
-from multiprocessing import Queue
+from multiprocessing import Queue, Process
+from pysrc.log import log, LogType
+
+
+class __Threader:
+    __threads = dict()
+
+    def add(self, name, thread):
+        if not isinstance(thread, Process):
+            raise ValueError(f"{thread} is not of type Thread")
+        self.__threads[name] = thread
+
+    def get(self, name):
+        return self.__threads[name]
+
+    def join(self):
+        for name, thread in self.__threads.items():
+            log("info")(f"Waiting for thread: `{name}`` to finish",
+                        LogType.gui)
+            thread.join()
+
+
+class __Queuer:
+    __queues = dict()
+
+    def add(self, name, queue):
+        print(name, queue)
+        if not type(queue) == type(Queue()):
+            raise ValueError(f"{queue} is not of type Queue")
+
+        self.__queues[name] = queue
+
+    def get(self, name):
+        return self.__queues[name]
+
+    def send(self, name, msg):
+        q = self.get(name)
+        q.put(msg)
+
+    def send_nowait(self, name, msg):
+        q = self.get(name)
+        q.put_nowait(msg)
+
+    def recv(self, name):
+        q = self.get(name)
+        return q.get()
+
+    def recv_nowait(self, name):
+        q = self.get(name)
+        return q.get_nowait()
+
+
+queuer = __Queuer()
+threader = __Threader()
 
 
 class ConnMode(Enum):
@@ -23,6 +76,7 @@ class ConnMode(Enum):
     Status from switch
     """
 
+
 class InfoType(Enum):
     """
     Different info types. To tag which entity
@@ -42,6 +96,7 @@ class InfoType(Enum):
     """
     Entity sends SIGINT
     """
+
 
 class ConnPackage:
     """
@@ -90,6 +145,8 @@ class ConnPackage:
 
         sets internal queue
         """
+        if sender is None:
+            raise ValueError(f"{sender} is None")
         self.__sender = sender
 
     def send(self, p):
