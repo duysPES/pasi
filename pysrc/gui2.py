@@ -51,7 +51,7 @@ class Inventory:
     @staticmethod
     def set_window_title(win, msg):
         msg = f"PASI v{config.pasi('version')} {msg}"
-        win.Tkroot.title(msg=msg)
+        win.TKroot.title(msg)
 
     @staticmethod
     def send_mode(win, mode, payload):
@@ -159,15 +159,15 @@ class Inventory:
         port = config.lisc('port')
         baudrate = int(config.lisc("baudrate"))
 
-        with LISC(port=port, baudrate=baudrate, timeout=3) as lisc:
-            queuer.add('inventory', Queue())
+        # with LISC(port=port, baudrate=baudrate, timeout=3) as lisc:
+        #     queuer.add('inventory', Queue())
 
-            Pasi.log("Spawning thread for inventory run", 'info')
-            thread = Process(target=lisc.do_inventory,
-                             args=(expected_switches, ))
-            threader.add('inventory', thread)
-            queuer.send('inventory', 'start')
-            thread.start()
+        #     Pasi.log("Spawning thread for inventory run", 'info')
+        #     thread = Process(target=lisc.do_inventory,
+        #                      args=(expected_switches, ))
+        #     threader.add('inventory', thread)
+        #     queuer.send('inventory', 'start')
+        #     thread.start()
 
     @staticmethod
     def debug_log(win, msg, status):
