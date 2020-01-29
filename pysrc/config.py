@@ -1,6 +1,7 @@
 import configparser
 # from dotted_dict import DottedDict
 import os, sys
+import pysrc.log as log
 
 
 class Config(configparser.ConfigParser):
@@ -64,9 +65,26 @@ class Config(configparser.ConfigParser):
         updates a field in switches section
         """
 
-        self['SWITCHES'][section] = value
+        self.update(header="SWITCHES", section=section, value=value, dump=dump)
+
+    def update_theme(self, theme_value, dump=True):
+        valid = ["light", "dark"]
+        if theme_value.lower() not in valid:
+            log.log(
+                'warning'
+            )(f"Unable to change theme, not a valid selection: `{theme_value}`",
+              log.LogType.gui)
+
+        self.update(header="PASI",
+                    section="theme",
+                    value=theme_value,
+                    dump=dump)
+
+    def update(self, header, section, value, dump=True):
+        """
+        updates a header and section with a value
+        """
+
+        self[header][section] = value
         if dump:
             self.dump()
-
-    # def dotted_dict(self):
-    #     return self.d

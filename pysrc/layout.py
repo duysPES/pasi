@@ -9,7 +9,7 @@ class MainWindowLayout:
 
     def menu_bar(self):
         layout = sg.Menu(
-            [["&File", ["&Job Planner", "&Shooting Interface"]]],
+            [["&File", ["&Job Planner", "&Shooting Interface", "&Change Theme", ['&Dark', '&Light']]]],
             tearoff=False,
             key="main_menu")
         return layout
@@ -20,7 +20,7 @@ class MainWindowLayout:
             [sg.Column(layout=
             [
                 [sg.Image(f"{resources}/logo.png", pad=(0,10))],
-                
+
             ]
             , justification="center", )]]
 
@@ -87,39 +87,41 @@ class ShootingLayout:
         return layout
 
     def column1_layout(self):
-        layout = sg.Column(
-            layout=[[
+        layout = sg.Column(layout=[
+            [
                 sg.Button("Inventory",
                           bind_return_key=True,
                           size=(20, 3),
-                          key="button_inventory")
+                          key="button_inventory",
+                          border_width=5)
             ],
-            [
-                sg.Frame('', border_width=0, layout=[[]],pad=(0,100))
-            ],
+            [sg.Frame('', border_width=0, layout=[[]], pad=(0, 100))],
             [
                 sg.Button("Pre-Arm",
-                            key="button_prearm",
-                            size=(20, 3),
-                            disabled=False)
+                          key="button_prearm",
+                          size=(20, 3),
+                          disabled=True,
+                          border_width=5)
             ],
             [
                 sg.Button("Arm",
-                            key="button_arm",
-                            disabled=False,
-                            size=(20, 3))
+                          key="button_arm",
+                          disabled=True,
+                          size=(20, 3),
+                          border_width=5)
             ],
             [
-                sg.Button("Fire",
-                            disabled=False,
-                            key="button_fire",
-                            size=(20, 3),
-                            image_filename="resources/button.png",
-                            image_subsample=4,
-                            focus=False,
-                            button_color=("yellow", "black"),
-                            border_width=0)
-            ]])
+                sg.Button(
+                    "Fire",
+                    disabled=True,
+                    key="button_fire",
+                    size=(20, 3),
+                    # image_filename="resources/button.png",
+                    # image_subsample=4,
+                    # focus=False,
+                    border_width=5)
+            ]
+        ])
 
         return layout
 

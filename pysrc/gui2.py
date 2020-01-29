@@ -5,8 +5,17 @@ from pysrc.log import LOG_PATH
 import PySimpleGUI as sg
 from pysrc.layout import ShootingLayout, MainWindowLayout, JobPlannerLayout
 from multiprocessing import Process, Queue
+from pysrc.colors import set_dark, FIRING_BUTTONS
+import os, sys
+# sg.change_look_and_feel('Reddit')
+set_dark()
 
-sg.change_look_and_feel('Reddit')
+if config.pasi("theme") == "dark":
+    set_dark()
+else:
+    sg.change_look_and_feel("Reddit")
+
+cntr = 0
 
 
 class Pasi:
@@ -55,7 +64,7 @@ class Pasi:
                 while True:
                     ev2, val2 = win.read()
 
-                    if not self.handle_job_planner(ev2, val2):
+                    if not self.handle_job_planner(win, ev2, val2):
                         win.close()
                         job_win_active = False
                         self.window.UnHide()
@@ -73,21 +82,48 @@ class Pasi:
                 while True:
                     ev2, val2 = win.read()
 
-                    if not self.handle_shooting_interface(ev2, val2):
+                    if not self.handle_shooting_interface(win, ev2, val2):
                         win.close()
                         shooting_win_active = False
                         self.window.UnHide()
                         break
 
-    def handle_shooting_interface(self, event, values):
+            if 'Dark' == event:
+                # change theme in config, restart program
+                config.update_theme("dark")
+                self.__restart()
+
+            if 'Light' == event:
+                # change theme in config, restart program
+                config.update_theme("light")
+                self.__restart()
+
+    def handle_shooting_interface(self, win, event, values):
+
+        if event is None or event == "Exit":
+            return False
+
+        if event == "button_inventory":
+            global cntr
+            btns = [
+                win['button_prearm'], win['button_arm'], win['button_fire']
+            ]
+
+            btns[cntr].Update(button_color=FIRING_BUTTONS['Active'],
+                              disabled=False)
+            cntr += 1
+            print(btns)
+            # test change all
+        return True
+
+    def handle_job_planner(self, win, event, values):
         if event is None or event == "Exit":
             return False
         return True
 
-    def handle_job_planner(self, event, values):
-        if event is None or event == "Exit":
-            return False
-        return True
+    def __restart(self):
+        python = sys.executable
+        os.execl(python, python, *sys.argv)
 
     @staticmethod
     def log(msg, status='info'):
