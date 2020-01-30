@@ -1,52 +1,346 @@
-import PySimpleGUI as sg
-from pysrc.config import Config
-from pysrc.layout import LayOuts
-import serial
-from pysrc.lisc import LISC
-from multiprocessing import Process, Queue
-import time
-from pysrc.thread import InfoType, ConnMode
-from collections import deque
-from pysrc.switch import Switch
-from pysrc.commands import Status, Commands
+from pysrc import config
 import pysrc.log as log
-from pysrc.log import LogType
+from pysrc.log import LogType, LOG_PATH
+from pysrc.switch import Switch
+from pysrc.lisc import LISC
+import PySimpleGUI as sg
+from pysrc.commands import Status
+from pysrc.layout import ShootingLayout, MainWindowLayout, JobPlannerLayout, ViewLogLayout, ChangeExpectedAmountLayout
+from multiprocessing import Process, Queue
+from pysrc.colors import set_dark, FIRING_BUTTONS
+from pysrc.thread import queuer, threader, InfoType, ConnMode
+import os, sys
+from collections import deque
 
-from pysrc.log import LOG_PATH
+set_dark()
 
-c = Config()
+if config.pasi("theme") == "dark":
+    set_dark()
+else:
+    sg.change_look_and_feel("Reddit")
 
-sg.change_look_and_feel('GreenTan')
+cntr = 0
 
-log.Log.clear()
+
+class ChangeExpectedAmount:
+    @staticmethod
+    def run(win, event, values):
+        win.Hide()
+        layout = ChangeExpectedAmountLayout()
+        win2 = sg.Window("Edit Expected Amount",
+                         layout=layout.main_layout(),
+                         size=(layout.width, layout.height),
+                         finalize=True,
+                         keep_on_top=True)
+
+        while True:
+            ev2, val2 = win2.read()
+
+            if val2 is None:
+                break
+
+            if ev2 == "Exit":
+                cur_val = val2['expected_combo']
+                print(cur_val)
+
+                config.update_switches("expected",
+                                       str(val2['expected_combo']),
+                                       dump=True)
+
+                win['label_expected_amount'](str(val2['expected_combo']))
+                break
+        win2.close()
+        win.UnHide()
+
+
+class Inventory:
+    @staticmethod
+    def set_window_title(win, msg):
+        msg = f"PASI v{config.pasi('version')} {msg}"
+        win.TKroot.title(msg)
+
+    @staticmethod
+    def send_mode(win, mode, payload):
+        if mode == ConnMode.DEBUG:
+            Inventory.debug_area(win, msg=payload, clear=False)
+
+        elif mode == ConnMode.MAIN:
+            print("FROM MAIN ", payload)
+
+        elif mode == ConnMode.STATUS:
+            status = Status(payload)
+            msg = f"{status.voltage}V, {status.temp}C <FW {status.firmware}>"
+            print(msg)
+            Inventory.set_window_title(win, msg=msg)
+
+    @staticmethod
+    def process_message(win, msgs):
+        """
+        process incoming message from inventory queue
+        """
+        print(msgs)
+        if not isinstance(msgs, deque):
+            errmsg = "Message from queue is not a ConnPackage, fatal error."
+            Inventory.debug_log(win, msg=errmsg, status='error')
+            return False
+
+        elif len(msgs) > 0:
+            info_type, mode, msg = msgs
+            if info_type == InfoType.KILL:
+                msgs = "Done with inventory process"
+                Inventory.send_mode(win, mode, msg)
+                Pasi.log(msg, 'info')
+                return False
+
+            if info_type == InfoType.SWITCH:
+                if mode == ConnMode.STATUS:
+                    pos, addr, status = msg
+                    Inventory.send_mode(win, mode, status)
+                    return True
+
+                elif mode == ConnMode.MAIN:
+                    pos, addr = msg
+                    # update anticipated HERE
+                    # @TODO
+                    sg = f"add switch: {pos}: [{addr}]"
+                    print(sg)
+                    return True
+
+            elif info_type == InfoType.OTHER:
+                Inventory.send_mode(win, mode, msg)
+                return True
+        else:
+            pass
+
+    @staticmethod
+    def __edit_ml(widget, msg, clear=False):
+        if clear:
+            widget("")
+        else:
+            current = widget.get()
+            widget(current + str(msg))
+
+    @staticmethod
+    def debug_area(win, msg, clear=False):
+        Inventory.__edit_ml(win['debug_area'], msg=msg, clear=clear)
+
+    @staticmethod
+    def update_switch_canvas(win, switch=None, clear=False):
+        switch_lst = win['switch_list']
+
+        if clear:
+            switch_lst.clear()
+            return
+
+        if not isinstance(switch, Switch):
+            raise ValueError(f"{switch} is not of type Switch")
+
+        switches = switch_lst.GetListValues()
+
+        if len(switches) == 0:
+            switches.append(str(switch))
+            switch_lst.Update(switches)
+            return
+
+        found = list(filter(lambda sw: sw == str(sw), switches))
+
+        if len(found) > 0:
+            Pasi.log(f"Switch already accounted for: {switch}", 'info')
+        else:
+            switches.append(str(switch))
+            switch_lst.Update(switches)
+        return
+
+    @staticmethod
+    def run(win, event, values):
+
+        log.Log.clear(LogType.gui)
+        Inventory.debug_area(win, None, clear=True)
+        Pasi.log("Beginning inventory run", "info")
+        expected_switches = int(win['label_expected_amount'].DisplayText)
+
+        Inventory.debug_log(win, f"Expecting {expected_switches} switches.",
+                            'info')
+
+        port = config.lisc('port')
+        baudrate = int(config.lisc("baudrate"))
+
+        # with LISC(port=port, baudrate=baudrate, timeout=3) as lisc:
+        #     queuer.add('inventory', Queue())
+
+        #     Pasi.log("Spawning thread for inventory run", 'info')
+        #     thread = Process(target=lisc.do_inventory,
+        #                      args=(expected_switches, ))
+        #     threader.add('inventory', thread)
+        #     queuer.send('inventory', 'start')
+        #     thread.start()
+
+    @staticmethod
+    def debug_log(win, msg, status):
+        Pasi.log(msg, status)
+        Inventory.debug_area(win, msg=msg, clear=False)
+
+
+class ViewLogs:
+    @staticmethod
+    def run(win, event, values):
+        win.Hide()
+        layout = ViewLogLayout()
+        win2 = sg.Window("Logs",
+                         layout=layout.main_layout(),
+                         size=(layout.width, layout.height),
+                         finalize=True,
+                         keep_on_top=True)
+        prev_file_buf = ""
+        while True:
+            ev2, val2 = win2.read(timeout=3)
+
+            with open((LOG_PATH / "gui.log").resolve(), "r") as l:
+                buffer = l.read()
+                if prev_file_buf != buffer:
+                    win2['log_view'](buffer)
+                    prev_file_buf = buffer
+            if ev2 is None or ev2 == "Exit":
+                win2.close()
+                break
+        win.UnHide()
 
 
 class Pasi:
-    """
-    Main Program handler. Controls GUI that users will be using
-    to inventory addressable switches, and running switch simulator
-    """
+    inventory = False
 
-    lo = LayOuts()
-    """
-    variable to helper class that stores all layouts for PySimpleGui
-    """
+    @property
+    def win_title(self):
+        return f"PASI v{config.pasi('version')}"
 
-    inventory_queue = Queue()
-    """
-    thread-safe *half-duplex* channel that is used when moving
-    entire inventory process on a seperate thread. This allows for communication
-    back to main thread.
-    """
     def __init__(self):
-        self.layout = self.lo.main_layout()
-        self.window = sg.Window("",
-                                layout=self.layout,
-                                default_element_size=(40, 1),
+        self.shooting_interface_layout = ShootingLayout()
+        self.main_layout = MainWindowLayout()
+        self.job_plan_layout = JobPlannerLayout()
+        self.height = self.main_layout.height
+        self.width = self.main_layout.width
+        self.window = sg.Window(self.win_title,
+                                layout=self.main_layout.main_layout(),
                                 grab_anywhere=False,
-                                size=(c.pasi("width"), c.pasi("height")),
-                                finalize=True)
-        self.set_window_title()
+                                size=(self.main_layout.width,
+                                      self.main_layout.height),
+                                finalize=True,
+                                resizable=False,
+                                keep_on_top=True)
+
+    def loop(self):
+        shooting_win_active = False
+        job_win_active = False
+        while True:
+            event, values = self.window.read(
+                timeout=config.pasi("async_timeout"))
+
+            if event != '__TIMEOUT__':
+                pass
+            if event in (None, "Quit"):
+                threader.join()
+                break
+
+            if 'Job Planner' == event and not job_win_active:
+                job_win_active = True
+                self.window.Hide()
+                layout = self.job_plan_layout.main_layout()
+                win = sg.Window(f"{self.win_title}: Job Planner",
+                                layout=layout,
+                                size=(self.width, self.height),
+                                keep_on_top=True)
+
+                while True:
+                    ev2, val2 = win.read()
+
+                    if not self.handle_job_planner(win, ev2, val2):
+                        win.close()
+                        job_win_active = False
+                        self.window.UnHide()
+                        break
+
+            if 'Shooting Interface' == event and not shooting_win_active:
+                shooting_win_active = True
+                self.window.Hide()
+                layout = self.shooting_interface_layout.main_layout()
+                win = sg.Window(f"{self.win_title}: Shooting Interface",
+                                layout=layout,
+                                size=(self.width, self.height),
+                                keep_on_top=True)
+
+                while True:
+                    ev2, val2 = win.read(timeout=1)
+
+                    if not self.handle_shooting_interface(win, ev2, val2):
+                        win.close()
+                        shooting_win_active = False
+                        self.window.UnHide()
+                        break
+
+            if 'Dark' == event:
+                # change theme in config, restart program
+                config.update_theme("dark")
+                self.__restart()
+
+            if 'Light' == event:
+                # change theme in config, restart program
+                config.update_theme("light")
+                self.__restart()
+
+    def handle_shooting_interface(self, win, event, values):
+        if self.inventory == False:
+            try:
+                start_msg = queuer.recv_nowait('inventory')
+                if start_msg == "start":
+                    self.inventory = True
+            except:
+                pass
+        else:
+            try:
+                msgs = queuer.recv_nowait('inventory')
+
+                self.inventory = Inventory.process_message(win, msgs)
+            except:
+
+                pass
+
+        if event is None or event == "Exit":
+            return False
+
+        if "View Logs" == values["main_menu"]:
+            ViewLogs.run(win, event, values)
+
+        if "Changed Expected Amount" in event:
+            ChangeExpectedAmount.run(win, event, values)
+
+        if event == "button_inventory":
+            Inventory.run(win, event, values)
+            # global cntr
+            # btns = [
+            #     win['button_prearm'], win['button_arm'], win['button_fire']
+            # ]
+
+            # active_theme = config.get_theme()
+            # btns[cntr].Update(
+            #     button_color=FIRING_BUTTONS[active_theme]['active'],
+            #     disabled=False)
+            # cntr += 1
+            # print(btns)
+            # test change
+
+        if event != "__TIMEOUT__":
+            print(event)
+
+        return True
+
+    def handle_job_planner(self, win, event, values):
+        if event is None or event == "Exit":
+            return False
+        return True
+
+    def __restart(self):
+        python = sys.executable
+        os.execl(python, python, *sys.argv)
 
     @staticmethod
     def log(msg, status='info'):
@@ -58,323 +352,3 @@ class Pasi:
         Wrapper around log object to verify that output from GUI is going to gui.log
         """
         log.log(status)(msg, log.LogType.gui)
-
-    def send_to_multiline(self, widget, msg, clear=False):
-        """
-        ```
-        input: sg.Element, str, bool
-        return: None
-        ```
-        helper method to update a tk multiline element
-
-        ```python
-        my_widget = window['label']
-        send_to_multiline(my_widget, msg="hello, world", clear=False)
-
-        print(my_widget.DisplayText) # "hello, world"
-        ```
-        """
-
-        if clear:
-            widget(msg)
-        else:
-            current = widget.get()
-            new_string = current + str(msg)
-            widget(new_string)
-
-    def reset_elements(self):
-        """
-        resets all elements to their default values
-        """
-
-        # self.send_to_main("", clear=True)
-        self.append_main(msg="", clear=True)
-        self.send_to_debug("", clear=True)
-        self.update_anticipated(0)
-
-    def write_element(self, window, key, msg, append=True):
-        """
-        ```
-        input: sg.Window, str, str, bool
-        return: None
-        ```
-        same functionality as send_to_multiline except you can 
-        specifiy sg.Window object.
-
-        """
-
-        ele = window.Element(key)
-        try:
-            ele.update(msg + '\n', append=append)
-        except Exception:
-            ele.DisplayText = msg
-
-    # def send_to_main(self, msg, clear=False):
-    #     """
-    #     ```
-    #     input: str, bool
-    #     return: None
-    #     ```
-    #     helper method to update main multiline element in
-    #     GUI, where Switch information is posted.
-    #     """
-    #     widget = self.window['multiline_switch_canvas']
-    #     self.send_to_multiline(widget=widget, msg=msg, clear=clear)
-
-    def append_main(self, msg, clear=False):
-        """
-        helper method to update main listbox with switch address
-        """
-        widget = self.window['switch_list']
-
-        if clear:
-            widget.update([])
-            return None
-        cur_vals = widget.GetListValues()
-        cur_vals.append(msg)
-        widget.update(cur_vals)
-
-    def send_to_debug(self, msg, clear=False):
-        """
-        ```
-        input: str, bool
-        return: None
-        ```
-        helper method to update multiline that serves as debug output.
-
-        """
-        widget = self.window['debug_area']
-        self.send_to_multiline(widget=widget, msg=msg, clear=clear)
-
-    def update_anticipated(self, num):
-        """        
-        ```
-        input: str
-        return: None
-        ```
-        helper method to update number of anticipated switches
-
-        """
-        w = self.window['label_anticipated_amount']
-        w(num)
-
-    def set_window_title(self, msg=""):
-        """
-        ```
-        input: str
-        return: None
-        ```
-        Set window title.
-
-        """
-        print(c.pasi('version'))
-        msg = "PASI v{} {}".format(c.pasi("version"), msg)
-        self.window.TKroot.title(msg)
-
-    def loop(self):
-        """
-        **main program loop, this is where ALL 
-        the magic happens.**
-
-        ```python
-        gui.loop()
-        # things crash
-        # things burn
-        # things take over the world.
-        ```
-        """
-
-        inventory = False
-        # set both multiline elements to autoscroll
-        self.window.FindElement(key='debug_area').Autoscroll = True
-
-        # self.window.FindElement(
-        #     key='multiline_switch_canvas').Autoscroll = True
-
-        while True:
-            event, values = self.window.read(timeout=c.pasi('async_timeout'))
-            if event != '__TIMEOUT__':
-                pass
-            if event in (None, 'Quit'):
-                break
-
-            if 'Changed Expected Amount' in event:
-                print("In here")
-                layout = [
-                    [
-                        # sg.Input("{}".format(cur_val), focus=True, key='input_box')
-                        sg.Spin([x + 1 for x in range(30)],
-                                initial_value=c.switches('expected'),
-                                key='input_box',
-                                size=(50, 100),
-                                font=('any 24'))
-                    ],
-                    [sg.Button('Exit', bind_return_key=True)]
-                ]
-                win2 = sg.Window("Edit Expected Amount",
-                                 layout=layout,
-                                 size=(300, 300),
-                                 finalize=True)
-
-                while True:
-                    ev2, vals2 = win2.read()
-                    if ev2 is None or ev2 == 'Exit':
-                        # set config
-
-                        c.update_switches('expected',
-                                          str(vals2['input_box']),
-                                          dump=True)
-                        self.window['label_expected_amount'](str(
-                            vals2['input_box']))
-                        win2.close()
-                        break
-
-            if 'View Logs' == values['main_menu']:
-                layout = [[
-                    sg.Multiline("",
-                                 size=(c.pasi('width'), c.pasi('height')),
-                                 key="log_view")
-                ]]
-                log_view = sg.Window("Logs",
-                                     layout=layout,
-                                     grab_anywhere=False,
-                                     size=(c.pasi("width"), c.pasi("height")),
-                                     finalize=True)
-                prev_file_buf = ""
-                while True:
-                    ev2, vals2 = log_view.read(timeout=3)
-
-                    with open(LOG_PATH + "gui.log", "r") as l:
-                        buffer = l.read()
-                        if prev_file_buf != buffer:
-                            log_view['log_view'](buffer)
-                            prev_file_buf = buffer
-
-                    if ev2 is None or ev2 == 'Exit':
-                        log_view.close()
-                        break
-
-            if 'button_inventory' in event:
-                # clear elements
-                log.Log.clear(LogType.gui)
-                self.send_to_debug("", clear=True)
-                # self.send_to_main("", clear=True)
-                self.append_main("", clear=True)
-                self.log("Beginning inventory run", 'info')
-                inventory = True
-                self.set_window_title()
-
-                expected_switches = self.read_expected()
-                self.send_to_debug(f"Expecting {expected_switches} switches..")
-
-                port = str(c.lisc('port'))
-                baudrate = int(c.lisc('baudrate'))
-                with LISC(port=port, baudrate=baudrate, timeout=3) as lisc:
-                    self.log("Spawning thread for inventory run", 'info')
-                    thread = Process(target=lisc.do_inventory,
-                                     args=(self.inventory_queue,
-                                           expected_switches))
-                    thread.start()
-
-            if inventory:
-                try:
-                    # returns a deque object with information
-                    msgs = self.inventory_queue.get_nowait()
-                    if not isinstance(msgs, deque):
-                        """
-                        This piece of code should never run, if it does it is a programmer induced bug
-                        and not the users fault. msgs is in incorrect format, the entire program will
-                        not work as intended. Instead of exiting the programming, simply stop the inventory
-                        process and default back to normal GUI.
-                        """
-                        inventory = False  # turn off inventory
-                        errmsg = \
-                        """
-                        Message from queue is not a ConnPackage, fatal error. Program will
-                        not work as expected
-                        """
-                        self.log(errmsg, 'error')
-
-                    elif len(msgs) > 0:
-
-                        info_type, mode, msg = msgs
-                        if info_type == InfoType.KILL:
-                            msg = "Done with inventory process"
-                            self.send_mode(mode, msg)
-                            inventory = False
-                            self.log(msg, "info")
-
-                        if info_type == InfoType.SWITCH:
-
-                            if mode == ConnMode.STATUS:
-                                pos, addr, status = msg
-                                self.send_mode(mode, status)
-
-                            if mode == ConnMode.MAIN:
-                                pos, addr = msg
-                                self.update_anticipated(num=int(pos))
-                                msg = "{}: [{}]".format(pos, addr)
-
-                                self.append_main(msg, clear=False)
-
-                        if info_type == InfoType.OTHER:
-                            self.send_mode(mode, msg)
-
-                    else:
-                        # here for brevity
-                        pass
-
-                except Exception:
-                    pass
-
-        self.window.close()
-        self.log("Main Gui loop closing", "info")
-
-    def read_expected(self):
-        """
-        ```python
-        input: None
-        return: int
-        ```
-        Helper method that returns the number for anticipated switches
-        from label. Attempts to convert to int, with some error checking.
-        If it fails the conversion it will by default return `1`
-        """
-        num = self.window['label_expected_amount'].DisplayText
-        try:
-            num = int(num)
-        except ValueError:
-            num = 1
-
-        return num
-
-    def send_mode(self, mode, payload):
-        """
-        ```
-        input: ConnMode, PyObj
-        return: None
-        ```
-
-        a proxy method that takes incoming data from 
-        the queue object, and updates applicable elements
-        within the main gui based on Connection Mode and InfoTypes
-        found in packets.
-        """
-        if mode == ConnMode.DEBUG:
-            self.send_to_debug(msg=payload, clear=False)
-        elif mode == ConnMode.MAIN:
-            # self.send_to_main(msg=payload, clear=False)
-            print("FROM MAIN ", payload)
-
-        elif mode == ConnMode.STATUS:
-            status = Status(payload)
-            msg = "{}V, {}C  <FW {}>".format(status.voltage, status.temp,
-                                             status.firmware)
-            self.set_window_title(msg=msg)
-        else:
-            errmsg = \
-                """
-                This block should never run. Input ConnMode from 
-                thread supplies an invalid enum type, mode: {}
-                """.format(mode)
-            self.log(errmsg, 'error')
