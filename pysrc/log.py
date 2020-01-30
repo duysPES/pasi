@@ -2,9 +2,9 @@ import datetime
 from enum import Enum
 import sys
 import os
+from pathlib import Path
 
-# LOG_PATH = os.path.join(sys.path[0], 'logs/')
-LOG_PATH = os.path.join(os.getenv("HOME"), "pasi/logs/")
+LOG_PATH = Path(__file__).parent.parent / "logs/"
 
 
 class ServerLog:
@@ -24,7 +24,7 @@ class ServerLog:
 
     @staticmethod
     def clear():
-        with open(LOG_PATH + ServerLog.fname, "w+") as f:
+        with open((LOG_PATH / ServerLog.fname).resolve(), "w+") as f:
             pass
 
 
@@ -39,12 +39,12 @@ class GuiLog:
     @staticmethod
     def log(msg, status):
         now = datetime.datetime.now().ctime()
-        with open(LOG_PATH + GuiLog.fname, "a") as f:
+        with open((LOG_PATH / GuiLog.fname).resolve(), "a") as f:
             f.write("{}: {} [{}]\n".format(now, status.value.upper(), msg))
 
     @staticmethod
     def clear():
-        with open(LOG_PATH + GuiLog.fname, "w+") as f:
+        with open((LOG_PATH / GuiLog.fname).resolve(), "w+") as f:
             pass
 
 

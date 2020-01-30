@@ -189,7 +189,7 @@ class ViewLogs:
         while True:
             ev2, val2 = win2.read(timeout=3)
 
-            with open(LOG_PATH + "gui.log", "r") as l:
+            with open((LOG_PATH / "gui.log").resolve(), "r") as l:
                 buffer = l.read()
                 if prev_file_buf != buffer:
                     win2['log_view'](buffer)

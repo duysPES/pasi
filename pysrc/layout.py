@@ -1,7 +1,10 @@
 import PySimpleGUI as sg
 from pysrc import config
 import sys, os
-resources = os.path.join(os.getenv("HOME"), "pasi/resources/")
+from pysrc.log import LOG_PATH
+from pathlib import Path
+
+resources = Path(__file__).parent.parent / "resources/"
 
 
 class Layout:
@@ -23,11 +26,12 @@ class MainWindowLayout(Layout):
         return layout
 
     def main_layout(self):
+        logo_path = (resources / "logo.png").resolve()
         layout = [[self.menu_bar(), sg.Text('', size=(0, 5))],
                   [
                       sg.Column(
                           layout=[
-                              [sg.Image(f"{resources}/logo.png", pad=(0, 10))],
+                              [sg.Image(logo_path, pad=(0, 10))],
                           ],
                           justification="center",
                       )
@@ -147,7 +151,7 @@ class ShootingLayout(Layout):
 
     def debug_area(self):
         layout = sg.Multiline(default_text='',
-                              size=(self.width//15, self.height//100),
+                              size=(self.width*2, self.height//100),
                               key="debug_area",
                               do_not_clear=True,
                               disabled=True)

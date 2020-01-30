@@ -2,6 +2,7 @@ import configparser
 # from dotted_dict import DottedDict
 import os, sys
 import pysrc.log as log
+from pathlib import Path
 
 
 class Config(configparser.ConfigParser):
@@ -11,7 +12,7 @@ class Config(configparser.ConfigParser):
     """
 
     # config_file_path = os.path.join(sys.path[0], 'config.ini')
-    config_file_path = os.path.join(os.getenv("HOME"), "pasi/config.ini")
+    config_file_path = (Path(__file__).parent.parent / "config.ini").resolve()
     """
     relative path to config file based on 
     where main.py is called.
@@ -19,7 +20,7 @@ class Config(configparser.ConfigParser):
     def __init__(self):
         super(Config, self).__init__(self)
         self.read(self.config_file_path)
-
+        print(self.config_file_path)
         # self.d = DottedDict({s: dict(self.items(s)) for s in self.sections()})
 
     def dump(self):

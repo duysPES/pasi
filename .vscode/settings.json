@@ -1,4 +1,4 @@
 {
-    "python.pythonPath": "/home/duys/py/bin/python",
+    "python.pythonPath": "C:\\Users\\duan_\\py\\Scripts\\python.exe",
     "python.formatting.provider": "yapf"
 }
