@@ -141,7 +141,7 @@ class ShootingLayout(Layout):
             ],
             [
                 sg.Listbox(values=[],
-                           size=(self.width//25, self.height//50),
+                           size=(self.width*2, self.height//50),
                            key='switch_list',
                            enable_events=True,
                            font=("fixedsys", '7'))
