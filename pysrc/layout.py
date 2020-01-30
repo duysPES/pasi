@@ -3,6 +3,7 @@ from pysrc import config
 import sys, os
 from pysrc.log import LOG_PATH
 from pathlib import Path
+import datetime
 
 resources = Path(__file__).parent.parent / "resources/"
 
@@ -42,11 +43,76 @@ class MainWindowLayout(Layout):
 
 class JobPlannerLayout(Layout):
     def menu_bar(self):
-        layout = sg.Menu([["&Help"]], tearoff=False, key="main_menu")
+        layout = sg.Menu([["&Jobs", ["&New", "&Load"]]], tearoff=False, key="main_menu")
+        return layout
+
+    def column1_layout(self):
+        layout = sg.Column(justification='left',
+                           layout=[[
+                               sg.Frame('',
+                                        border_width=0,
+                                        layout=[
+                                            [
+                                                sg.Text("Job Name",
+                                                        size=(8, 1)),
+                                                sg.Input("",
+                                                         size=(17, 1),
+                                                         key="name")
+                                            ],
+                                            [
+                                                sg.Text("Client", size=(8, 1)),
+                                                sg.Input("",
+                                                         size=(17, 1),
+                                                         key="client")
+                                            ],
+                                            [
+                                                sg.Text("Well", size=(8, 1)),
+                                                sg.Input("",
+                                                         size=(17, 1),
+                                                         key="well")
+                                            ],
+                                            [
+                                                sg.Text("Unit #", size=(8, 1)),
+                                                sg.Input("",
+                                                         size=(17, 1),
+                                                         key="unit")
+                                            ],
+                                        ])
+                           ]])
+
+
+
+        return layout
+
+    def column2_layout(self):
+        layout = sg.Column(justification='center',
+            layout=[
+                [sg.Frame('Date',
+                    layout=[
+                        # [sg.Button("Update", key='today_button', font=("fixedsys", "6"))],
+                        [sg.Text(f"{str(datetime.datetime.now())}", key='date', font=("fixedsys", "6"))]
+                    ])
+                ],
+            ]
+        )
         return layout
 
     def main_layout(self):
-        layout = [[self.menu_bar()]]
+        layout = [
+            [self.menu_bar()],
+            [self.column1_layout(), self.column2_layout()],
+            [sg.Frame('Notes',
+                    border_width=1,
+                    layout=[[sg.Multiline("", key="notes", size=(self.width // 15, self.height//200), font=("fixedsys", "7"))]])
+            ],
+            [sg.Save(), sg.Button("Update", key="update_db_btn"), sg.Button("check db", key='check_db_btn')],
+            [
+                sg.Frame('Passes', pad=(0,50),
+                        layout=[
+                            [sg.Listbox([], key="passes", disabled=True, auto_size_text=True, size=(self.width // 15, self.height // 200))]
+                        ])
+            ]
+        ]
 
         return layout
 

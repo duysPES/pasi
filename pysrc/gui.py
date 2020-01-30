@@ -1,25 +1,23 @@
-from pysrc import config
+import os, sys
+import PySimpleGUI as sg
+from multiprocessing import Process, Queue
+import datetime
+
+from pysrc import db, pp
 import pysrc.log as log
-from pysrc.log import LogType, LOG_PATH
+from pysrc import config
 from pysrc.switch import Switch
 from pysrc.lisc import LISC
-import PySimpleGUI as sg
 from pysrc.commands import Status
 from pysrc.layout import ShootingLayout, MainWindowLayout, JobPlannerLayout, ViewLogLayout, ChangeExpectedAmountLayout
-from multiprocessing import Process, Queue
 from pysrc.colors import set_dark, FIRING_BUTTONS
 from pysrc.thread import queuer, threader, InfoType, ConnMode
-import os, sys
-from collections import deque
-
-set_dark()
+from pysrc.jobplanner import JobPlanner, JobPlannerCheckdb, JobPlannerLoadJob, JobPlannerNewJob, JobPlannerSave, JobPlannerUpdatedb
 
 if config.pasi("theme") == "dark":
     set_dark()
 else:
     sg.change_look_and_feel("Reddit")
-
-cntr = 0
 
 
 class ChangeExpectedAmount:
@@ -154,7 +152,7 @@ class Inventory:
     @staticmethod
     def run(win, event, values):
 
-        log.Log.clear(LogType.gui)
+        log.Log.clear(log.LogType.gui)
         Inventory.debug_area(win, None, clear=True)
         Pasi.log("Beginning inventory run", "info")
         expected_switches = int(win['label_expected_amount'].DisplayText)
@@ -195,7 +193,7 @@ class ViewLogs:
         while True:
             ev2, val2 = win2.read(timeout=3)
 
-            with open((LOG_PATH / "gui.log").resolve(), "r") as l:
+            with open((log.LOG_PATH / "gui.log").resolve(), "r") as l:
                 buffer = l.read()
                 if prev_file_buf != buffer:
                     win2['log_view'](buffer)
@@ -336,6 +334,32 @@ class Pasi:
     def handle_job_planner(self, win, event, values):
         if event is None or event == "Exit":
             return False
+
+        if event == "today_button":
+            date_widget = win['date']
+            date = str(datetime.datetime.now())
+            date_widget(str(date))
+
+        if event == "Save":
+            JobPlannerSave.run(win, event, values)
+
+        if event == "check_db_btn":
+            JobPlannerCheckdb.run(win, event, values)
+
+        if event == "update_db_btn":
+            JobPlannerUpdatedb.run(win, event, values)
+
+        if event == "Load":
+            JobPlannerLoadJob.run(win, event, values)
+
+        if event == "New":
+            JobPlannerNewJob.run(win, event, values)
+
+        if event != "__TIMEOUT__":
+            print(event, values)
+
+        # update time
+
         return True
 
     def __restart(self):

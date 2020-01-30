@@ -1,6 +1,7 @@
 from pysrc.gui import Pasi
 from screeninfo import get_monitors
 from pysrc import config
+import argparse
 
 
 def screen_size_setup():
@@ -27,9 +28,12 @@ def screen_size_setup():
         config.update("PASI", "height", str(gh), dump=True)
 
 
-if __name__ == "__main__":
+def main():
     screen_size_setup()
     gui = Pasi()
     gui.loop()
-
     print("..done..")
+
+
+if __name__ == "__main__":
+    main()
