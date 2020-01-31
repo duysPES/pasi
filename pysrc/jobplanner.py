@@ -1,8 +1,11 @@
 import pymongo
 import PySimpleGUI as sg
 import datetime
-from pysrc import db, config, pp
+from pysrc import db, config
+from pysrc.job import Pass, Job
 from pysrc.layout import MainWindowLayout
+from pysrc.db import Bson
+from typing import *
 
 
 class JobPlanner:
@@ -11,6 +14,18 @@ class JobPlanner:
         if values[key].strip() == invalid:
             return False
         return True
+
+    @staticmethod
+    def format(values):
+        to_skip = ['passes', 'notes']
+
+        for key, val in values.items():
+            if key not in to_skip:
+                try:
+                    values[key] = val.upper()
+                except AttributeError:
+                    # most likely a None, leave it alone
+                    pass
 
     @staticmethod
     def form_ok(values, ignore=[]):
@@ -57,29 +72,6 @@ class JobPlanner:
                 if key not in to_keep:
                     del values[key]
 
-    @staticmethod
-    def clean_bson(bson):
-        """
-        do pre-processing on values in bson
-        """
-
-        # removes all white space and newlines
-
-        print(bson)
-        tmp = bson.copy()
-        for key, val in tmp.items():
-            if isinstance(val, str):
-                bson[key] = val.strip()
-
-    @staticmethod
-    def add_date(bson):
-        """
-        Since date is saved as a label, it is not included 
-        in events, and values. This simply takes current time and adds to bson object
-        """
-
-        bson['date'] = str(datetime.datetime.now())
-
 
 class JobPlannerSave(JobPlanner):
     @staticmethod
@@ -87,16 +79,17 @@ class JobPlannerSave(JobPlanner):
         # first check to see if any of the fields are empty
         if JobPlanner.form_ok(values, ignore=["main_menu", "passes"]):
             # form is okay, construct bson document
-            bson = values.copy()
+            bson = Bson(values.copy()).clean_bson().add_date().add_field(
+                "active_pass", None)
+
             JobPlanner.remove_from_values(bson, to_remove=["main_menu"])
-            JobPlanner.clean_bson(bson)
-            JobPlanner.add_date(bson)
             try:
-                doc_id = db['jobs'].insert_one(bson).inserted_id
-                Pasi.log(f"Inserted job {doc_id} into db", "info")
+                # doc_id = db['jobs'].insert_one(bson).inserted_id
+                doc_id = db.add_job(bson)
+                db.log(f"Inserted job {doc_id} into db", "info")
             except pymongo.errors.DuplicateKeyError:
                 errmsg = f"Unable to create job, job already exists"
-                Pasi.log(errmsg, 'warning')
+                db.log(errmsg, 'warning')
                 sg.PopupError(errmsg, keep_on_top=True)
 
 
@@ -105,32 +98,24 @@ class JobPlannerCheckdb(JobPlanner):
     def run(win, event, values):
         if JobPlanner.form_ok(values, ignore=["!name"]):
             # display raw bson document in pop up box query from name
-            bson = db['jobs'].find_one({'name': values['name']})
+            # bson = db['jobs'].find_one({'name': values['name']})
+            job = db.find_job(job_name=values['name'])
 
-            bson = pp.pformat(
-                bson) if bson is not None else "Job does not exist."
-            sg.PopupOK(bson,
-                       title=f"Job `{values['name']}``",
-                       keep_on_top=True)
+            job = str(job) if job is not None else "Job does not exist."
+            sg.PopupOK(job, title=f"Job `{values['name']}``", keep_on_top=True)
 
 
 class JobPlannerUpdatedb(JobPlanner):
     @staticmethod
     def run(win, event, values):
         if JobPlanner.form_ok(values, ignore=["main_menu", "passes"]):
-            bson = values.copy()
+            bson = Bson(values.copy())
             JobPlanner.remove_from_values(bson, to_remove=["main_menu"])
-            JobPlanner.clean_bson(bson)
-            JobPlanner.add_date(bson)
-
-            filt = {"name": values['name']}
+            bson.clean_bson().add_date()
             print(bson)
-            result = db['jobs'].update_one(filter=filt,
-                                           update={
-                                               "$set": bson
-                                           },
-                                           upsert=False).matched_count
-            print(result)
+            filt = {"name": values['name']}
+            result = db.update_jobs(filter=filt, update_query={"$set": bson})
+
             if result < 1:
                 sg.PopupError(f"{values['name']} does not exist, save first.",
                               keep_on_top=True)
@@ -142,9 +127,8 @@ class JobPlannerUpdatedb(JobPlanner):
 class JobPlannerNewJob(JobPlanner):
     @staticmethod
     def run(win, event, values):
-        widget_names = values.copy()
+        widget_names = Bson(values.copy()).add_date()
         JobPlanner.remove_from_values(widget_names, to_remove=["main_menu"])
-        JobPlanner.add_date(widget_names)
         for name, val in widget_names.items():
             if isinstance(val, list):
                 win[name]([])
@@ -159,11 +143,7 @@ class JobPlannerNewJob(JobPlanner):
 class JobPlannerLoadJob(JobPlanner):
     @staticmethod
     def run(win, event, values):
-        all_jobs = db['jobs'].find()
-
-        jobs = {}
-        for job in all_jobs:
-            jobs[job['name']] = job
+        jobs = db.all_jobs()
 
         layout = [[
             sg.Listbox(list(jobs.keys()),
@@ -198,9 +178,17 @@ class JobPlannerLoadJob(JobPlanner):
             return
 
         job = jobs[job_name]  # bson/dict object
+        # print(job)
         for name, _ in values.items():
             if name in job.keys():
-                win[name].update(job[name])
+                # print("key ", name, " val: ", job.d[name], " updating: ",
+                #       win[name])
+                if isinstance(job.d[name], list):
+                    passes = [j['name'] for j in job.d[name]]
+
+                    win[name].Update(passes)
+                else:
+                    win[name].Update(job.d[name])
 
         # done forget about the date :)
-        win['date'](job['date'])
+        win['date'](job.date)

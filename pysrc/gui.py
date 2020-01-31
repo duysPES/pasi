@@ -1,18 +1,20 @@
 import os, sys
+import tkinter as tk
 import PySimpleGUI as sg
 from multiprocessing import Process, Queue
 import datetime
 
-from pysrc import db, pp
+from pysrc import db
 import pysrc.log as log
 from pysrc import config
 from pysrc.switch import Switch
 from pysrc.lisc import LISC
 from pysrc.commands import Status
-from pysrc.layout import ShootingLayout, MainWindowLayout, JobPlannerLayout, ViewLogLayout, ChangeExpectedAmountLayout
+from pysrc.layout import ShootingLayout, MainWindowLayout, JobPlannerLayout, ViewLogLayout, ChangeExpectedAmountLayout, ShootingPanelMenuBar
 from pysrc.colors import set_dark, FIRING_BUTTONS
 from pysrc.thread import queuer, threader, InfoType, ConnMode
-from pysrc.jobplanner import JobPlanner, JobPlannerCheckdb, JobPlannerLoadJob, JobPlannerNewJob, JobPlannerSave, JobPlannerUpdatedb
+from pysrc.jobplanner import JobPlannerCheckdb, JobPlannerLoadJob, JobPlannerNewJob, JobPlannerSave, JobPlannerUpdatedb, JobPlanner
+from pysrc.job import Job, Pass
 
 if config.pasi("theme") == "dark":
     set_dark()
@@ -20,7 +22,58 @@ else:
     sg.change_look_and_feel("Reddit")
 
 
-class ChangeExpectedAmount:
+class ShootingPanel:
+    @staticmethod
+    def set_window_title(win, msg):
+        msg = f"PASI v{config.pasi('version')} {msg}"
+        win.TKroot.title(msg)
+
+    @staticmethod
+    def debug_log(win, msg, status):
+        Pasi.log(msg, status)
+        Inventory.debug_area(win, msg=msg, clear=False)
+
+    @staticmethod
+    def __edit_ml(widget, msg, clear=False):
+        if clear:
+            widget("")
+        else:
+            current = widget.get()
+            widget(current + str(msg))
+
+    @staticmethod
+    def debug_area(win, msg, clear=False):
+        Inventory.__edit_ml(win['debug_area'], msg=msg, clear=clear)
+
+    @staticmethod
+    def update_switch_canvas(win, switch=None, clear=False):
+        switch_lst = win['switch_list']
+
+        if clear:
+            switch_lst.clear()
+            return
+
+        if not isinstance(switch, Switch):
+            raise ValueError(f"{switch} is not of type Switch")
+
+        switches = switch_lst.GetListValues()
+
+        if len(switches) == 0:
+            switches.append(str(switch))
+            switch_lst.Update(switches)
+            return
+
+        found = list(filter(lambda sw: sw == str(sw), switches))
+
+        if len(found) > 0:
+            Pasi.log(f"Switch already accounted for: {switch}", 'info')
+        else:
+            switches.append(str(switch))
+            switch_lst.Update(switches)
+        return
+
+
+class ChangeExpectedAmount(ShootingPanel):
     @staticmethod
     def run(win, event, values):
         win.Hide()
@@ -51,12 +104,7 @@ class ChangeExpectedAmount:
         win.UnHide()
 
 
-class Inventory:
-    @staticmethod
-    def set_window_title(win, msg):
-        msg = f"PASI v{config.pasi('version')} {msg}"
-        win.TKroot.title(msg)
-
+class Inventory(ShootingPanel):
     @staticmethod
     def send_mode(win, mode, payload):
         if mode == ConnMode.DEBUG:
@@ -111,45 +159,6 @@ class Inventory:
             pass
 
     @staticmethod
-    def __edit_ml(widget, msg, clear=False):
-        if clear:
-            widget("")
-        else:
-            current = widget.get()
-            widget(current + str(msg))
-
-    @staticmethod
-    def debug_area(win, msg, clear=False):
-        Inventory.__edit_ml(win['debug_area'], msg=msg, clear=clear)
-
-    @staticmethod
-    def update_switch_canvas(win, switch=None, clear=False):
-        switch_lst = win['switch_list']
-
-        if clear:
-            switch_lst.clear()
-            return
-
-        if not isinstance(switch, Switch):
-            raise ValueError(f"{switch} is not of type Switch")
-
-        switches = switch_lst.GetListValues()
-
-        if len(switches) == 0:
-            switches.append(str(switch))
-            switch_lst.Update(switches)
-            return
-
-        found = list(filter(lambda sw: sw == str(sw), switches))
-
-        if len(found) > 0:
-            Pasi.log(f"Switch already accounted for: {switch}", 'info')
-        else:
-            switches.append(str(switch))
-            switch_lst.Update(switches)
-        return
-
-    @staticmethod
     def run(win, event, values):
 
         log.Log.clear(log.LogType.gui)
@@ -173,13 +182,8 @@ class Inventory:
         #     queuer.send('inventory', 'start')
         #     thread.start()
 
-    @staticmethod
-    def debug_log(win, msg, status):
-        Pasi.log(msg, status)
-        Inventory.debug_area(win, msg=msg, clear=False)
 
-
-class ViewLogs:
+class ViewLogs(ShootingPanel):
     @staticmethod
     def run(win, event, values):
         win.Hide()
@@ -204,12 +208,72 @@ class ViewLogs:
         win.UnHide()
 
 
+class DetachJob(ShootingPanel):
+    @staticmethod
+    def run(win, event, values):
+        win['button_inventory'].Update(disabled=True)
+        win['main_menu'].set_element("Attach Job", 1)
+        win['main_menu'].set_element("Detach Job", 0)
+        win['main_menu'].set_element("Passes", 0)
+        db.detach_job()
+
+
+class AttachJob(ShootingPanel):
+    @staticmethod
+    def run(win, event, values):
+
+        jobs = db.all_jobs()
+
+        layout = [[
+            sg.Listbox(list(jobs.keys()),
+                       size=(MainWindowLayout.width // 4,
+                             MainWindowLayout.height // 4),
+                       key="job_selection",
+                       enable_events=True,
+                       select_mode=sg.SELECT_MODE_SINGLE)
+        ]]
+
+        win2 = sg.Window("Select Job",
+                         keep_on_top=True,
+                         layout=layout,
+                         size=(MainWindowLayout.width // 2,
+                               MainWindowLayout.height // 2),
+                         finalize=True)
+
+        job_name = None
+        while True:
+            ev2, val2 = win2.read()
+
+            if ev2 == None:
+                break
+
+            if ev2 == "job_selection":
+                job_name = val2[ev2][0]
+                win2.close()
+                break
+
+        if job_name is None:
+            return
+
+        if not db.attach_job(job_name):
+            errmsg = "Fatal error, could not attach job, doesn't exist in db"
+            Pasi.log("Fatal error, could not attach job, doesn't exist in db"
+                     "error")
+            sg.PopupError(
+                "Fatal error, could not attach job, doesn't exist in db",
+                keep_on_top=True)
+            return
+
+
+def no_exit():
+    return
+
+
 class Pasi:
     inventory = False
 
-    @property
-    def win_title(self):
-        return f"PASI v{config.pasi('version')}"
+    def win_title(self, msg=""):
+        return f"PASI v{config.pasi('version')} {msg}"
 
     def __init__(self):
         self.shooting_interface_layout = ShootingLayout()
@@ -217,7 +281,7 @@ class Pasi:
         self.job_plan_layout = JobPlannerLayout()
         self.height = self.main_layout.height
         self.width = self.main_layout.width
-        self.window = sg.Window(self.win_title,
+        self.window = sg.Window(self.win_title(),
                                 layout=self.main_layout.main_layout(),
                                 grab_anywhere=False,
                                 size=(self.main_layout.width,
@@ -225,6 +289,7 @@ class Pasi:
                                 finalize=True,
                                 resizable=False,
                                 keep_on_top=True)
+        self.attached_job = None
 
     def loop(self):
         shooting_win_active = False
@@ -243,7 +308,7 @@ class Pasi:
                 job_win_active = True
                 self.window.Hide()
                 layout = self.job_plan_layout.main_layout()
-                win = sg.Window(f"{self.win_title}: Job Planner",
+                win = sg.Window(f"{self.win_title(': Job Planner')}",
                                 layout=layout,
                                 size=(self.width, self.height),
                                 keep_on_top=True)
@@ -261,13 +326,17 @@ class Pasi:
                 shooting_win_active = True
                 self.window.Hide()
                 layout = self.shooting_interface_layout.main_layout()
-                win = sg.Window(f"{self.win_title}: Shooting Interface",
+                win = sg.Window(f"{self.win_title(': Shooting Interface')}",
                                 layout=layout,
                                 size=(self.width, self.height),
-                                keep_on_top=True)
+                                keep_on_top=True,
+                                finalize=True)
+                DetachJob.run(win, event, values)
+                win.TKroot.title(self.win_title(f": Shooting Interface"))
+                self.attached_job = None
 
                 while True:
-                    ev2, val2 = win.read(timeout=1)
+                    ev2, val2 = win.read(timeout=200)
 
                     if not self.handle_shooting_interface(win, ev2, val2):
                         win.close()
@@ -286,6 +355,50 @@ class Pasi:
                 self.__restart()
 
     def handle_shooting_interface(self, win, event, values):
+        if event is None or event == "Exit":
+            return False
+
+        if not self.attached_job:
+            if db.attached_job() is not None:
+                # we have attached a job, unlock the inventory button
+                win['button_inventory'].Update(disabled=False)
+                menu: ShootingPanelMenuBar = win['main_menu']
+                menu.set_element("Attach Job", 0)
+                menu.set_element("Detach Job", 1)
+                menu.set_element("Passes", 1)
+                job: Job = db.attached_job()
+                self.attached_job = job
+
+                menu.add_passes([p["name"] for p in job.passes])
+
+                win.TKroot.title(
+                    self.win_title(f": < {job.name}:{job.client} >"))
+
+        else:
+            if event == "New::new_pass":
+                # create a pass object and all output from shooting
+                # panel will be stored in currently selected pass
+                job = db.attached_job()
+                new_pass: Pass = Pass(
+                    len(self.attached_job.pass_names()) + 1, job.id)
+                menu: ShootingPanelMenuBar = win['main_menu']
+
+                # add active pass
+
+                # add to menubar
+                menu.add_passes([new_pass])
+
+                # add to database and make new pass active
+                db.add_pass(new_pass, make_active=True)
+                print(db.attached_job())
+                win.TKroot.title(
+                    self.win_title(msg=job.for_win_title(new_pass)))
+                # print(values)
+
+        if self.attached_job is not None:
+            if event in self.attached_job.pass_names():
+                print("FOUND A PASS, ", event)
+
         if self.inventory == False:
             try:
                 start_msg = queuer.recv_nowait('inventory')
@@ -302,14 +415,19 @@ class Pasi:
 
                 pass
 
-        if event is None or event == "Exit":
-            return False
-
         if "View Logs" == values["main_menu"]:
             ViewLogs.run(win, event, values)
 
         if "Changed Expected Amount" in event:
             ChangeExpectedAmount.run(win, event, values)
+
+        if 'Attach Job' == event:
+            AttachJob.run(win, event, values)
+
+        if 'Detach Job' == event:
+            DetachJob.run(win, event, values)
+            win.TKroot.title(self.win_title(f": Shooting Interface"))
+            self.attached_job = None
 
         if event == "button_inventory":
             Inventory.run(win, event, values)
@@ -326,14 +444,17 @@ class Pasi:
             # print(btns)
             # test change
 
-        if event != "__TIMEOUT__":
-            print(event)
+        # if event != "__TIMEOUT__":
+        #     # print(event)
+        #     # print("")
 
         return True
 
     def handle_job_planner(self, win, event, values):
         if event is None or event == "Exit":
             return False
+
+        JobPlanner.format(values)
 
         if event == "today_button":
             date_widget = win['date']
@@ -357,6 +478,7 @@ class Pasi:
 
         if event != "__TIMEOUT__":
             print(event, values)
+            # pass
 
         # update time
 

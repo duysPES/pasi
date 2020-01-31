@@ -1,11 +1,60 @@
 import PySimpleGUI as sg
-from pysrc import config
+from pysrc import config, db
 import sys, os
 from pysrc.log import LOG_PATH
 from pathlib import Path
 import datetime
-
+from pysrc.job import Pass, Job
+from typing import *
 resources = Path(__file__).parent.parent / "resources/"
+
+
+# MAIN_MENU = []
+
+
+class ShootingPanelMenuBar(sg.Menu):
+    MENU = [
+    ["&File", ["&Attach Job", "!&Detach Job", "&View Logs", "&Changed Expected Amount"]],
+    ["!&Passes", ["&New::new_pass"]]
+    ]
+
+    def set_element(self, name: str, state=1, visible=None):
+        prepend = "!" if state == 0 else ""
+        new_menu = self.MENU[:]
+
+        for i, _ in enumerate(new_menu):
+            for idx, element in enumerate(new_menu[i]):
+                if isinstance(element, list):
+                    for idy, sub_element in enumerate(new_menu[i][idx]):
+                        parsed = sub_element.replace('!', '')
+                        if parsed.replace("&", "") == name:
+                            new_menu[i][idx][idy] = prepend + parsed
+
+                if isinstance(element, str):
+                    parsed = element.replace('!', '')
+                    if parsed.replace("&", "") == name:
+                        new_menu[i][idx] = prepend + parsed
+
+        self.Update(menu_definition=new_menu, visible=visible)
+
+    def add_passes(self, names: List[Pass]):
+        """
+        add passes to menu, under passes
+        """
+
+        new_menu = self.MENU[:]
+        # first clear elements that are currently there
+        # this is a quick fix, because for some reason, `self.MENU` is being affected...
+        # for now just clear the list that holds the passes
+        cur_vals = new_menu[1][1][1:]
+        # new_menu[1][1] = new_menu[1][1][:1]
+
+        # new_menu[1][1] = new_menu[1][1]
+        for pass_name in names:
+            new_menu[1][1].append(str(pass_name))
+        print(new_menu)
+        self.Update(menu_definition=new_menu)
+
 
 
 class Layout:
@@ -109,7 +158,7 @@ class JobPlannerLayout(Layout):
             [
                 sg.Frame('Passes', pad=(0,50),
                         layout=[
-                            [sg.Listbox([], key="passes", disabled=True, auto_size_text=True, size=(self.width // 15, self.height // 200))]
+                            [sg.Listbox([], key="passes", disabled=False, auto_size_text=True, size=(self.width // 15, self.height // 200))]
                         ])
             ]
         ]
@@ -121,10 +170,11 @@ class ShootingLayout(Layout):
     checkmark = u'\u2713'
 
     def main_menu(self):
-        layout = sg.Menu(
-            [["&File", ["&View Logs", "&Changed Expected Amount"]]],
-            tearoff=False,
-            key="main_menu")
+
+        # layout = Menu(MAIN_MENU).widget(tearoff=False, key="main_menu")
+        layout = ShootingPanelMenuBar(ShootingPanelMenuBar.MENU,
+                                      tearoff=False,
+                                      key="main_menu")
         return layout
 
     def anticipated_layout(self):
@@ -168,7 +218,8 @@ class ShootingLayout(Layout):
                           bind_return_key=True,
                           size=(20, 3),
                           key="button_inventory",
-                          border_width=5)
+                          border_width=5,
+                          disabled=True)
             ],
             [sg.Frame('', border_width=0, layout=[[]], pad=(0, 100))],
             [

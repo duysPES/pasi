@@ -1,11 +1,10 @@
 from pysrc.config import Config
+import pysrc.db
 import pysrc.log as log
 import pprint
 import pymongo
 
-db = pymongo.MongoClient("localhost", 27017)['db']
-db.jobs.create_index([('name', pymongo.ASCENDING)], unique=True)
-pp = pprint.PrettyPrinter(indent=4)
+db = pysrc.db.JobHandler()
 
 
 def log_gui(msg, status='info'):
