@@ -215,6 +215,7 @@ class DetachJob(ShootingPanel):
         win['main_menu'].set_element("Attach Job", 1)
         win['main_menu'].set_element("Detach Job", 0)
         win['main_menu'].set_element("Passes", 0)
+        win['main_menu'].reset()
         db.detach_job()
 
 

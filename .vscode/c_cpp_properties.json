@@ -11,6 +11,16 @@
             "compilerPath": "C:\\Program Files (x86)\\mingw-w64\\i686-8.1.0-posix-dwarf-rt_v6-rev0\\mingw32\\bin\\gcc.exe",
             "cStandard": "c11",
             "cppStandard": "c++17"
+        },
+        {
+            "name": "Linux",
+            "includePath": [
+                "/home/duys/arduino-1.8.10/tools/**",
+                "/home/duys/arduino-1.8.10/hardware/arduino/avr/**"
+            ],
+            "forcedInclude": [
+                "/home/duys/arduino-1.8.10/hardware/arduino/avr/cores/arduino/Arduino.h"
+            ]
         }
     ],
     "version": 4

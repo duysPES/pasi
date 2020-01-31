@@ -37,6 +37,10 @@ class ShootingPanelMenuBar(sg.Menu):
 
         self.Update(menu_definition=new_menu, visible=visible)
 
+    def reset(self):
+        print(self.MENU)
+        self.Update(menu_definition=self.MENU)
+
     def add_passes(self, names: List[Pass]):
         """
         add passes to menu, under passes
