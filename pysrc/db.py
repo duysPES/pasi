@@ -1,6 +1,10 @@
 import pymongo
 import datetime
+import pathlib
+import configparser
 import pysrc.log as log
+import pprint
+import json
 from pysrc.job import Job, Pass
 from pysrc.bson import Bson
 
@@ -31,14 +35,70 @@ class Database:
     def _find_all_records(self, col):
         return self.db[col].find()
 
-    def _find_one(self, col, criteria):
+    def _find_one(self, col, criteria={}, **kwargs):
         try:
-            return Bson(self.db[col].find_one(criteria))
+            return Bson(self.db[col].find_one(filter=criteria, **kwargs))
         except TypeError:
             return None
 
     def _insert_one(self, col, bson):
         return self.db[col].insert_one(bson).inserted_id
+
+
+class ConfigDB(Database):
+    def __init__(self):
+        super(ConfigDB, self).__init__()
+        self.ini = (pathlib.Path(__file__).parent.parent /
+                    "config.json").resolve()
+        # set default config files, with collection: 'config'
+        bson = self.read_ini()
+        self._update("config",
+                     filter={"_id": 0},
+                     update_query={"$set": bson},
+                     upsert=True)
+
+        self.update("pasi", "height", "900")
+
+    def update_theme(self, theme_value):
+        print('pasi', 'theme', theme_value)
+        self.update('pasi', 'theme', theme_value.lower())
+
+    def lisc(self, section):
+        return self.get("lisc", section)
+
+    def switches(self, section):
+        return self.get("switches", section)
+
+    def pasi(self, section):
+        return self.get("pasi", section)
+
+    def get(self, header, section):
+        """
+        retrieve value from header and section
+        """
+        setting = self._find_one("config",
+                                 projection={f"{header}.{section}": 1})
+        return setting[header][section]
+
+    def update(self, header, section, value):
+        """
+        update a header and section with a value
+        """
+        update_query = {"$set": {f"{header}.{section}": value}}
+        match = self._update("config",
+                             filter={"_id": 0},
+                             update_query=update_query,
+                             upsert=False)
+
+    def read_ini(self):
+        with open(self.ini, 'r') as f:
+            d = eval(f.read())
+            return d
+
+    def write_ini(self):
+        settings = self._find_all_records("config")[0]
+        with open(self.ini, 'w') as f:
+            f.write(json.dumps(settings, indent=4, sort_keys=True))
 
 
 class JobHandler(Database):

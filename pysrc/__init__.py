@@ -1,10 +1,12 @@
-from pysrc.config import Config
-import pysrc.db
+# from pysrc.config import Config
+from pysrc.db import JobHandler, ConfigDB
 import pysrc.log as log
 import pprint
 import pymongo
 
-db = pysrc.db.JobHandler()
+config = ConfigDB()
+# config = Config()
+db = JobHandler()
 
 
 def log_gui(msg, status='info'):
@@ -16,6 +18,3 @@ def log_gui(msg, status='info'):
     Wrapper around log object to verify that output from GUI is going to gui.log
     """
     log.log(status)(msg, log.LogType.gui)
-
-
-config = Config()

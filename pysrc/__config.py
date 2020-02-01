@@ -1,3 +1,9 @@
+#
+#
+# This implementation of config is becoming obsolete..
+# will be removed in the future, mostly here for reference.
+#
+
 import configparser
 # from dotted_dict import DottedDict
 import os, sys

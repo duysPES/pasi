@@ -1,0 +1,17 @@
+{
+    "_id": 0,
+    "lisc": {
+        "baudrate": 9600,
+        "port": "/dev/ttyUSB0"
+    },
+    "pasi": {
+        "async_timeout": 10,
+        "height": 900,
+        "theme": "dark",
+        "version": "0.1.0",
+        "width": 600
+    },
+    "switches": {
+        "expected": 2
+    }
+}

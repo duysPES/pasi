@@ -4,7 +4,7 @@ import PySimpleGUI as sg
 from multiprocessing import Process, Queue
 import datetime
 
-from pysrc import db
+from pysrc import db, config
 import pysrc.log as log
 from pysrc import config
 from pysrc.switch import Switch
@@ -170,8 +170,7 @@ class Inventory(ShootingPanel):
                             'info')
 
         port = config.lisc('port')
-        baudrate = int(config.lisc("baudrate"))
-
+        baudrate = config.lisc("baudrate")
         # with LISC(port=port, baudrate=baudrate, timeout=3) as lisc:
         #     queuer.add('inventory', Queue())
 
@@ -295,9 +294,9 @@ class Pasi:
     def loop(self):
         shooting_win_active = False
         job_win_active = False
+        async_ = config.pasi('async_timeout')
         while True:
-            event, values = self.window.read(
-                timeout=config.pasi("async_timeout"))
+            event, values = self.window.read(timeout=async_)
 
             if event != '__TIMEOUT__':
                 pass
@@ -486,6 +485,7 @@ class Pasi:
         return True
 
     def __restart(self):
+        config.write_ini()
         python = sys.executable
         os.execl(python, python, *sys.argv)
 

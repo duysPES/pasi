@@ -62,9 +62,9 @@ class ShootingPanelMenuBar(sg.Menu):
 
 
 class Layout:
+
     width = int(config.pasi("width"))
     height = int(config.pasi("height"))
-
 
 class MainWindowLayout(Layout):
     def menu_bar(self):
