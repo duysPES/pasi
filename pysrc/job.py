@@ -49,6 +49,8 @@ class Pass:
 
 
 class Job:
+    active_pass = None
+
     def __init__(self, *args, **kwargs):
         self.__dict__ = kwargs
 

@@ -7,7 +7,7 @@
     "pasi": {
         "async_timeout": 10,
         "height": 900,
-        "theme": "dark",
+        "theme": "light",
         "version": "0.1.0",
         "width": 600
     },

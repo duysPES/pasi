@@ -49,30 +49,21 @@ class Database:
 class Log(Database):
     EMPTY_LOG = {"contents": [], "job_id": None, "pass_name": None}
     _id = None
+    cur_pass = None
 
     ## fix this!!
     def __init__(self, p: Pass):
         super(Log, self).__init__(p)
-        try:
-            self._id = self._insert_one("logs", bson=self.EMPTY_LOG)
-            print("HELLO1")
-        except Exception:
-            job_id = self.get_job_by_id(p.job_id)
-            criteria = {"job_id": job_id}
-            self._id = self._find_one("logs", criteria=criteria)['_id']
-            print("HELLO2")
+        # check to see if pass.job_id exists within Logs
+        self.cur_pass = p
+        log = self._find_one("logs", {"job_id": p.job_id})
 
-        print(self._id)
-        filter = {"_id": self._id}
-        update_query = {"$set": {"job_id": p.job_id, "pass_name": str(p)}}
-        self._update("logs",
-                     filter=filter,
-                     update_query=update_query,
-                     upsert=False)
-
-    def get_job_by_id(self, id):
-        criteria = {"_id": id}
-        return self._find_one("jobs", criteria=criteria)
+        if log is None:
+            init = {"job_id": p.job_id, "contents": {}}
+            self._id = self._insert_one("logs",
+                                        bson=init)  # this returns Log._id
+        else:
+            self._id = log['_id']
 
     def log(self, msg, status):
         if self._id is None:
@@ -83,12 +74,14 @@ class Log(Database):
         log_msg = "{}: {} [{}]\n".format(now, status.upper(), msg)
 
         filter = {"_id": self._id}
-        update_query = {"$push": {"contents": log_msg}}
+        # update_query = {"$push": {"contents": {str(self.cur_pass): log_msg}}}
+        # update_query = {"$push": {f"contents.{str(self.cur_pass)}": log_msg}}
+        update_query = {"$push": {f"contents.{self.cur_pass.num}": log_msg}}
 
         self._update("logs",
                      filter=filter,
                      update_query=update_query,
-                     upsert=False)
+                     upsert=True)
 
     def __enter__(self):
         # supply as Pass to log everything to supplied pass
