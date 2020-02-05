@@ -1,0 +1,4 @@
+pymongo==3.10.1
+screeninfo==0.6.1
+pyserial==3.4
+PySimpleGUI==4.15.2
