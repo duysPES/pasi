@@ -112,7 +112,6 @@ class JobPlannerUpdatedb(JobPlanner):
             bson = Bson(values.copy())
             JobPlanner.remove_from_values(bson, to_remove=["main_menu"])
             bson.clean_bson().add_date()
-            print(bson)
             filt = {"name": values['name']}
             result = db.update_jobs(filter=filt, update_query={"$set": bson})
 
@@ -178,7 +177,6 @@ class JobPlannerLoadJob(JobPlanner):
             return
 
         job = jobs[job_name]  # bson/dict object
-        # print(job)
         for name, _ in values.items():
             if name in job.keys():
                 # print("key ", name, " val: ", job.d[name], " updating: ",

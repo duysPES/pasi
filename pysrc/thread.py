@@ -26,7 +26,6 @@ class __Queuer:
     __queues = dict()
 
     def add(self, name, queue):
-        print(name, queue)
         if not type(queue) == type(Queue()):
             raise ValueError(f"{queue} is not of type Queue")
 

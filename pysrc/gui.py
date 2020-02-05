@@ -92,7 +92,6 @@ class ChangeExpectedAmount(ShootingPanel):
 
             if ev2 == "Exit":
                 cur_val = val2['expected_combo']
-                print(cur_val)
 
                 config.update_switches("expected",
                                        str(val2['expected_combo']),
@@ -124,7 +123,6 @@ class Inventory(ShootingPanel):
         """
         process incoming message from inventory queue
         """
-        print(msgs)
         if not isinstance(msgs, deque):
             errmsg = "Message from queue is not a ConnPackage, fatal error."
             Inventory.debug_log(win, msg=errmsg, status='error')
@@ -149,7 +147,6 @@ class Inventory(ShootingPanel):
                     # update anticipated HERE
                     # @TODO
                     sg = f"add switch: {pos}: [{addr}]"
-                    print(sg)
                     return True
 
             elif info_type == InfoType.OTHER:
@@ -368,9 +365,7 @@ class Pasi:
                 menu.set_element("Passes", 1)
                 job: Job = db.attached_job()
                 self.attached_job = job
-                # print([p["name"] for p in self.attached_job.passes])
                 menu.add_passes(job.pass_objs())
-                print("Updated: ", menu.MenuDefinition)
                 win.TKroot.title(
                     self.win_title(f": < {job.name}:{job.client} >"))
 
@@ -390,10 +385,8 @@ class Pasi:
 
                 # add to database and make new pass active
                 db.add_pass(new_pass, make_active=True)
-                print(db.attached_job())
                 win.TKroot.title(
                     self.win_title(msg=job.for_win_title(new_pass)))
-                # print(values)
 
         if self.attached_job is not None:
             if event in [str(p) for p in self.attached_job.pass_objs()]:
