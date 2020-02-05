@@ -13,7 +13,7 @@ from pysrc.commands import Status
 from pysrc.layout import ShootingLayout, MainWindowLayout, JobPlannerLayout, ViewLogLayout, ChangeExpectedAmountLayout, ShootingPanelMenuBar
 from pysrc.colors import set_dark, FIRING_BUTTONS
 from pysrc.thread import queuer, threader, InfoType, ConnMode
-from pysrc.jobplanner import JobPlannerCheckdb, JobPlannerLoadJob, JobPlannerNewJob, JobPlannerSave, JobPlannerUpdatedb, JobPlanner
+from pysrc.jobplanner import JobPlannerCheckdb, JobPlannerLoadJob, JobPlannerNewJob, JobPlannerSave, JobPlannerUpdatedb, JobPlannerShowPass, JobPlanner
 from pysrc.job import Job, Pass
 
 if config.pasi("theme") == "dark":
@@ -469,9 +469,12 @@ class Pasi:
         if event == "New":
             JobPlannerNewJob.run(win, event, values)
 
-        if event != "__TIMEOUT__":
-            print(event, values)
-            # pass
+        if event == "passes":
+            JobPlannerShowPass.run(win, event, values)
+
+        # if event != "__TIMEOUT__":
+        # print(event, values)
+        # pass
 
         # update time
 

@@ -164,7 +164,7 @@ class JobPlannerLayout(Layout):
             [
                 sg.Frame('Passes', pad=(0,50),
                         layout=[
-                            [sg.Listbox([], key="passes", disabled=False, auto_size_text=True, size=(self.width // 15, self.height // 200))]
+                            [sg.Listbox([], key="passes", enable_events=True, disabled=False, auto_size_text=True, size=(self.width // 15, self.height // 200))]
                         ])
             ]
         ]

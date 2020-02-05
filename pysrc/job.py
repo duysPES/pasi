@@ -17,6 +17,10 @@ class Pass:
     def __str__(self):
         return f"< Pass: {self.num} >"
 
+    def prettify(self):
+        pp = pprint.PrettyPrinter(indent=4)
+        return pp.pformat(self.serialize())
+
     def serialize(self):
         """
         take contents of Pass and serialize into bson object for consumption to mongo
@@ -54,6 +58,14 @@ class Job:
 
     def clear_active_pass(self):
         self.active_pass = None
+
+    def get_pass(self, name: str):
+        pass_objs = self.pass_objs()
+
+        for p in pass_objs:
+            if str(p) == name:
+                return p
+        return None
 
     def pass_objs(self):
         # return [p['name'] for p in self.__dict__['passes']]

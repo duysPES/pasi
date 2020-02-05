@@ -139,6 +139,35 @@ class JobPlannerNewJob(JobPlanner):
         win['date'](str(widget_names['date']))
 
 
+class JobPlannerShowPass(JobPlanner):
+    @staticmethod
+    def run(win, event, values):
+
+        # a little hack and pretty confusing for the future
+        # This method is only run when an event IS 'passes'
+        # which tells us that the user is looking for more information on
+        # a specific pass, it will have the name of the pass as the
+        # value of the dictionary that holds the forms key:value pairs,
+        # in this case, we are guarenteed that values (the dict) contains
+        # the key of event (the key='passes'); and therefore
+        # values[event] == {name of pass}
+        selected_pass = values[event]
+        job = db.find_job(values['name'])
+
+        # because we are querying a potential list of items from
+        # a ListBox, the value of values[event] is a list,
+        # since we put the restriction on that the user can ONLY
+        # select a single value on the Pass ListBox, we are guaranteed
+        # that the list will only ever have a single element,
+        # but checking for more than one should still be done.)
+
+        if len(selected_pass) > 1:
+            raise IndexError("Selected pass contains more than one element.")
+
+        p = job.get_pass(*selected_pass)
+        sg.PopupOK(p.prettify(), title=f"{p}", keep_on_top=True)
+
+
 class JobPlannerLoadJob(JobPlanner):
     @staticmethod
     def run(win, event, values):
