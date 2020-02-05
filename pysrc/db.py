@@ -12,9 +12,10 @@ from pysrc.bson import Bson
 class Database:
     ATTACH_JOB_CRITERIA = {'_id': 0}
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         self.db = pymongo.MongoClient("localhost", 27017)['db']
         self.db.jobs.create_index([('name', pymongo.ASCENDING)], unique=True)
+        self.db.logs.create_index([('job_id', pymongo.ASCENDING)], unique=True)
 
         # create a single uid instance of attach
         self._update(col='attach',
@@ -43,6 +44,58 @@ class Database:
 
     def _insert_one(self, col, bson):
         return self.db[col].insert_one(bson).inserted_id
+
+
+class Log(Database):
+    EMPTY_LOG = {"contents": [], "job_id": None, "pass_name": None}
+    _id = None
+
+    ## fix this!!
+    def __init__(self, p: Pass):
+        super(Log, self).__init__(p)
+        try:
+            self._id = self._insert_one("logs", bson=self.EMPTY_LOG)
+            print("HELLO1")
+        except Exception:
+            job_id = self.get_job_by_id(p.job_id)
+            criteria = {"job_id": job_id}
+            self._id = self._find_one("logs", criteria=criteria)['_id']
+            print("HELLO2")
+
+        print(self._id)
+        filter = {"_id": self._id}
+        update_query = {"$set": {"job_id": p.job_id, "pass_name": str(p)}}
+        self._update("logs",
+                     filter=filter,
+                     update_query=update_query,
+                     upsert=False)
+
+    def get_job_by_id(self, id):
+        criteria = {"_id": id}
+        return self._find_one("jobs", criteria=criteria)
+
+    def log(self, msg, status):
+        if self._id is None:
+            raise AttributeError(
+                "can only invoke method within context manager")
+
+        now = datetime.datetime.now().ctime()
+        log_msg = "{}: {} [{}]\n".format(now, status.upper(), msg)
+
+        filter = {"_id": self._id}
+        update_query = {"$push": {"contents": log_msg}}
+
+        self._update("logs",
+                     filter=filter,
+                     update_query=update_query,
+                     upsert=False)
+
+    def __enter__(self):
+        # supply as Pass to log everything to supplied pass
+        return self
+
+    def __exit__(self, type, value, tb):
+        self._id = None
 
 
 class ConfigDB(Database):

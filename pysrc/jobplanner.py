@@ -165,7 +165,7 @@ class JobPlannerShowPass(JobPlanner):
             raise IndexError("Selected pass contains more than one element.")
 
         p = job.get_pass(*selected_pass)
-        sg.PopupOK(p.prettify(), title=f"{p}", keep_on_top=True)
+        sg.PopupOK(p.summary(), title=f"{p}", keep_on_top=True)
 
 
 class JobPlannerLoadJob(JobPlanner):

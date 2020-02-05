@@ -3,6 +3,8 @@ from pysrc.bson import Bson
 
 
 class Pass:
+    __Log = ""
+
     @classmethod
     def deserialize(cls, **kwargs):
         """
@@ -14,6 +16,9 @@ class Pass:
         self.num = pass_number
         self.job_id = job_id
 
+    def add_log(self, log):
+        self.__Log = log
+
     def __str__(self):
         return f"< Pass: {self.num} >"
 
@@ -21,19 +26,24 @@ class Pass:
         pp = pprint.PrettyPrinter(indent=4)
         return pp.pformat(self.serialize())
 
+    def summary(self):
+        string = \
+        f"""
+        {str(self)}
+        
+        Logs
+        {self.Log}
+         """
+
     def serialize(self):
         """
         take contents of Pass and serialize into bson object for consumption to mongo
         """
         serial: Bson = Bson({
-            "job":
-            self.job_id,
-            "num":
-            self.num,
-            "name":
-            str(self),
-            "logs":
-            "This is an example log, replace this will output from lisc"
+            "job": self.job_id,
+            "num": self.num,
+            "name": str(self),
+            "logs": self.__Log
         })
         return serial
 
