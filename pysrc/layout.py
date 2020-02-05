@@ -38,25 +38,28 @@ class ShootingPanelMenuBar(sg.Menu):
         self.Update(menu_definition=new_menu, visible=visible)
 
     def reset(self):
-        print(self.MENU)
-        self.Update(menu_definition=self.MENU)
+        # print(self.MENU)
+        self.Update(menu_definition=ShootingPanelMenuBar.MENU)
 
-    def add_passes(self, names: List[Pass]):
+    def add_passes(self, names: List[Pass] ,append=False):
         """
         add passes to menu, under passes
         """
 
+        # make a copy of self.MENU
         new_menu = self.MENU[:]
-        # first clear elements that are currently there
-        # this is a quick fix, because for some reason, `self.MENU` is being affected...
-        # for now just clear the list that holds the passes
-        cur_vals = new_menu[1][1][1:]
-        # new_menu[1][1] = new_menu[1][1][:1]
 
-        # new_menu[1][1] = new_menu[1][1]
-        for pass_name in names:
-            new_menu[1][1].append(str(pass_name))
-        print(new_menu)
+        # strip all options in menu under pass except for
+        # menu option "new"
+        stripped_vals = new_menu[1][1][:1]
+        old_vals = new_menu[1][1][1:]
+        if append:
+            [stripped_vals.append(x) for x in old_vals]
+        # for pass name in provided list of passes
+        for p in names:
+            stripped_vals.append(str(p))
+
+        new_menu[1][1] = stripped_vals
         self.Update(menu_definition=new_menu)
 
 

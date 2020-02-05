@@ -3,6 +3,13 @@ from pysrc.bson import Bson
 
 
 class Pass:
+    @classmethod
+    def deserialize(cls, **kwargs):
+        """
+        deconstruct a dictionary to instance of a pass
+        """
+        return cls(kwargs['num'], kwargs['job'])
+
     def __init__(self, pass_number: int, job_id: int):
         self.num = pass_number
         self.job_id = job_id
@@ -48,8 +55,9 @@ class Job:
     def clear_active_pass(self):
         self.active_pass = None
 
-    def pass_names(self):
-        return [p['name'] for p in self.__dict__['passes']]
+    def pass_objs(self):
+        # return [p['name'] for p in self.__dict__['passes']]
+        return [Pass.deserialize(**p) for p in self.__dict__['passes']]
 
     def for_win_title(self, p=None):
         x = f":{str(p)}" if p is not None else ""

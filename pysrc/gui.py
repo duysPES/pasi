@@ -368,9 +368,9 @@ class Pasi:
                 menu.set_element("Passes", 1)
                 job: Job = db.attached_job()
                 self.attached_job = job
-
-                menu.add_passes([p["name"] for p in job.passes])
-
+                # print([p["name"] for p in self.attached_job.passes])
+                menu.add_passes(job.pass_objs())
+                print("Updated: ", menu.MenuDefinition)
                 win.TKroot.title(
                     self.win_title(f": < {job.name}:{job.client} >"))
 
@@ -380,13 +380,13 @@ class Pasi:
                 # panel will be stored in currently selected pass
                 job = db.attached_job()
                 new_pass: Pass = Pass(
-                    len(self.attached_job.pass_names()) + 1, job.id)
+                    len(self.attached_job.pass_objs()) + 1, job.id)
                 menu: ShootingPanelMenuBar = win['main_menu']
 
                 # add active pass
 
                 # add to menubar
-                menu.add_passes([new_pass])
+                menu.add_passes([new_pass], append=True)
 
                 # add to database and make new pass active
                 db.add_pass(new_pass, make_active=True)
@@ -396,7 +396,7 @@ class Pasi:
                 # print(values)
 
         if self.attached_job is not None:
-            if event in self.attached_job.pass_names():
+            if event in [str(p) for p in self.attached_job.pass_objs()]:
                 print("FOUND A PASS, ", event)
 
         if self.inventory == False:
