@@ -57,14 +57,14 @@ class Commands(Enum):
     Command that represents a NULL
     """
     @staticmethod
-    def is_ack(msg):
+    def is_ack(msg) -> bool:
         """
         Helper method to determine if msg is ACK
         """
         return Commands.ACK.value[0] == msg
 
     @staticmethod
-    def is_nack(msg):
+    def is_nack(msg) -> bool:
         """
         Helper method to determine if msg is NACK
         """
@@ -90,7 +90,7 @@ class Commands(Enum):
         return Commands.NULL
 
     @staticmethod
-    def prettify(msg):
+    def prettify(msg) -> str:
         """
         takes a list of bytes, converts to hex, and returns a pretty string
         """

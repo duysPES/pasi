@@ -6,10 +6,10 @@
     },
     "pasi": {
         "async_timeout": 10,
-        "height": 900,
+        "height": 1200,
         "theme": "light",
         "version": "0.1.0",
-        "width": 600
+        "width": 800
     },
     "switches": {
         "expected": 2

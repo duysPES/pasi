@@ -363,6 +363,8 @@ class Pasi:
                 config.update_theme("light")
                 self.__restart()
 
+        config.write_ini()
+
     def handle_shooting_interface(self, win, event, values):
         if event is None or event == "Exit":
             return False
