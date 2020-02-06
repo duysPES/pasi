@@ -28,13 +28,13 @@ def screen_size_setup():
     else:
         config.update("pasi", 'width', gw)
         config.update('pasi', 'height', gh)
-
-        # config.update("PASI", "width", str(gw), dump=True)
-        # config.update("PASI", "height", str(gh), dump=True)
+        return True
 
 
 def main():
-    screen_size_setup()
+    if not screen_size_setup():
+        print("Unable to setup gui dimensions, wrong screen size")
+        return
     gui = Pasi()
     gui.loop()
     print("..done..")

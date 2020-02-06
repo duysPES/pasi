@@ -5,6 +5,7 @@ from multiprocessing import Process, Queue
 import datetime
 
 from pysrc import db, config
+from pysrc.db import Log
 import pysrc.log as log
 from pysrc import config
 from pysrc.switch import Switch
@@ -190,14 +191,24 @@ class ViewLogs(ShootingPanel):
                          finalize=True,
                          keep_on_top=True)
         prev_file_buf = ""
+
+        active_pass = db.attached_job().get_active_pass()
+
         while True:
             ev2, val2 = win2.read(timeout=3)
 
-            with open((log.LOG_PATH / "gui.log").resolve(), "r") as l:
-                buffer = l.read()
-                if prev_file_buf != buffer:
-                    win2['log_view'](buffer)
-                    prev_file_buf = buffer
+            buffer = Log.get_contents(active_pass)
+
+            if prev_file_buf != buffer:
+                win2['log_view'](buffer)
+                prev_file_buf = buffer
+
+            # with open((log.LOG_PATH / "gui.log").resolve(), "r") as l:
+            #     buffer = l.read()
+            #     if prev_file_buf != buffer:
+            #         win2['log_view'](buffer)
+            #         prev_file_buf = buffer
+
             if ev2 is None or ev2 == "Exit":
                 win2.close()
                 break
@@ -210,6 +221,7 @@ class DetachJob(ShootingPanel):
         win['button_inventory'].Update(disabled=True)
         win['main_menu'].set_element("Attach Job", 1)
         win['main_menu'].set_element("Detach Job", 0)
+        win['main_menu'].set_element("View Logs", 0)
         win['main_menu'].set_element("Passes", 0)
         win['main_menu'].reset()
         db.detach_job()
@@ -223,8 +235,8 @@ class AttachJob(ShootingPanel):
 
         layout = [[
             sg.Listbox(list(jobs.keys()),
-                       size=(MainWindowLayout.width // 4,
-                             MainWindowLayout.height // 4),
+                       size=(MainWindowLayout().width // 4,
+                             MainWindowLayout().height // 4),
                        key="job_selection",
                        enable_events=True,
                        select_mode=sg.SELECT_MODE_SINGLE)
@@ -233,8 +245,8 @@ class AttachJob(ShootingPanel):
         win2 = sg.Window("Select Job",
                          keep_on_top=True,
                          layout=layout,
-                         size=(MainWindowLayout.width // 2,
-                               MainWindowLayout.height // 2),
+                         size=(MainWindowLayout().width // 2,
+                               MainWindowLayout().height // 2),
                          finalize=True)
 
         job_name = None
@@ -362,6 +374,7 @@ class Pasi:
                 menu: ShootingPanelMenuBar = win['main_menu']
                 menu.set_element("Attach Job", 0)
                 menu.set_element("Detach Job", 1)
+                menu.set_element("View Logs", 1)
                 menu.set_element("Passes", 1)
                 job: Job = db.attached_job()
                 self.attached_job = job

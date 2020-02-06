@@ -4,7 +4,7 @@ import datetime
 from pysrc import db, config
 from pysrc.job import Pass, Job
 from pysrc.layout import MainWindowLayout
-from pysrc.db import Bson
+from pysrc.db import Bson, Log
 from typing import *
 
 
@@ -164,8 +164,13 @@ class JobPlannerShowPass(JobPlanner):
         if len(selected_pass) > 1:
             raise IndexError("Selected pass contains more than one element.")
 
-        p = job.get_pass(*selected_pass)
-        sg.PopupOK(p.prettify(), title=f"{p}", keep_on_top=True)
+        p = job.get_pass_by_name(*selected_pass)
+
+        log = Log.get_contents(p)
+
+        p.add_log(log)
+
+        sg.PopupOK(p.summary(), title=f"{p}", keep_on_top=True)
 
 
 class JobPlannerLoadJob(JobPlanner):
@@ -175,8 +180,8 @@ class JobPlannerLoadJob(JobPlanner):
 
         layout = [[
             sg.Listbox(list(jobs.keys()),
-                       size=(MainWindowLayout.width // 4,
-                             MainWindowLayout.height // 4),
+                       size=(MainWindowLayout().width // 4,
+                             MainWindowLayout().height // 4),
                        key="job_selection",
                        enable_events=True,
                        select_mode=sg.SELECT_MODE_SINGLE)
@@ -185,8 +190,8 @@ class JobPlannerLoadJob(JobPlanner):
         win2 = sg.Window("Select Job",
                          keep_on_top=True,
                          layout=layout,
-                         size=(MainWindowLayout.width // 2,
-                               MainWindowLayout.height // 2),
+                         size=(MainWindowLayout().width // 2,
+                               MainWindowLayout().height // 2),
                          finalize=True)
 
         job_name = None

@@ -12,9 +12,10 @@ from pysrc.bson import Bson
 class Database:
     ATTACH_JOB_CRITERIA = {'_id': 0}
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         self.db = pymongo.MongoClient("localhost", 27017)['db']
         self.db.jobs.create_index([('name', pymongo.ASCENDING)], unique=True)
+        self.db.logs.create_index([('job_id', pymongo.ASCENDING)], unique=True)
 
         # create a single uid instance of attach
         self._update(col='attach',
@@ -43,6 +44,61 @@ class Database:
 
     def _insert_one(self, col, bson):
         return self.db[col].insert_one(bson).inserted_id
+
+
+class Log(Database):
+    EMPTY_LOG = {"contents": [], "job_id": None, "pass_name": None}
+    _id = None
+    _raw = None
+    cur_pass = None
+
+    @classmethod
+    def get_contents(cls, p: Pass) -> str:
+        """
+        supply a pass, and obtain the contents of said pass, if it
+        exists within database
+        """
+        log = cls(p)
+        return "".join(log._raw['contents'][str(p.num)])
+
+    ## fix this!!
+    def __init__(self, p: Pass):
+        super(Log, self).__init__(p)
+        # check to see if pass.job_id exists within Logs
+        self.cur_pass = p
+        self._raw = self._find_one("logs", {"job_id": p.job_id})
+
+        if self._raw is None:
+            init = {"job_id": p.job_id, "contents": {}}
+            self._id = self._insert_one("logs",
+                                        bson=init)  # this returns Log._id
+        else:
+            self._id = self._raw['_id']
+
+    def log(self, msg, status):
+        if self._id is None:
+            raise AttributeError(
+                "can only invoke method within context manager")
+
+        now = datetime.datetime.now().ctime()
+        log_msg = "{}: {} [{}]\n".format(now, status.upper(), msg)
+
+        filter = {"_id": self._id}
+        # update_query = {"$push": {"contents": {str(self.cur_pass): log_msg}}}
+        # update_query = {"$push": {f"contents.{str(self.cur_pass)}": log_msg}}
+        update_query = {"$push": {f"contents.{self.cur_pass.num}": log_msg}}
+
+        self._update("logs",
+                     filter=filter,
+                     update_query=update_query,
+                     upsert=True)
+
+    def __enter__(self):
+        # supply as Pass to log everything to supplied pass
+        return self
+
+    def __exit__(self, type, value, tb):
+        self._id = None
 
 
 class ConfigDB(Database):

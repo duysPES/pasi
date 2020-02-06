@@ -1,12 +1,13 @@
 # from pysrc.config import Config
+
 from pysrc.db import JobHandler, ConfigDB
 import pysrc.log as log
 import pprint
 import pymongo
 
-config = ConfigDB()
+config: ConfigDB = ConfigDB()
 # config = Config()
-db = JobHandler()
+db: JobHandler = JobHandler()
 
 
 def log_gui(msg, status='info'):

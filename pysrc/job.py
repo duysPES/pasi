@@ -1,8 +1,11 @@
 import pprint
 from pysrc.bson import Bson
+from typing import *
 
 
 class Pass:
+    __Log = ""
+
     @classmethod
     def deserialize(cls, **kwargs):
         """
@@ -14,6 +17,9 @@ class Pass:
         self.num = pass_number
         self.job_id = job_id
 
+    def add_log(self, log):
+        self.__Log = log
+
     def __str__(self):
         return f"< Pass: {self.num} >"
 
@@ -21,19 +27,19 @@ class Pass:
         pp = pprint.PrettyPrinter(indent=4)
         return pp.pformat(self.serialize())
 
+    def summary(self):
+        string = f"{str(self)}\nLogs\n{self.__Log}"
+        return string
+
     def serialize(self):
         """
         take contents of Pass and serialize into bson object for consumption to mongo
         """
         serial: Bson = Bson({
-            "job":
-            self.job_id,
-            "num":
-            self.num,
-            "name":
-            str(self),
-            "logs":
-            "This is an example log, replace this will output from lisc"
+            "job": self.job_id,
+            "num": self.num,
+            "name": str(self),
+            "logs": self.__Log
         })
         return serial
 
@@ -53,13 +59,16 @@ class Job:
         if make_active:
             self.active_pass = new_pass
 
-    def set_active_pass(self, p: Pass):
-        self.active_pass = p
+    def get_active_pass(self) -> Pass:
+        return self.get_pass_by_num(self.active_pass)
 
-    def clear_active_pass(self):
-        self.active_pass = None
+    def get_pass_by_num(self, num: int) -> Pass:
+        for pass_obj in self.pass_objs():
+            if pass_obj.num == num:
+                return pass_obj
+        return None
 
-    def get_pass(self, name: str):
+    def get_pass_by_name(self, pass_name: str) -> Pass:
         pass_objs = self.pass_objs()
 
         for p in pass_objs:
@@ -67,7 +76,7 @@ class Job:
                 return p
         return None
 
-    def pass_objs(self):
+    def pass_objs(self) -> List[Pass]:
         # return [p['name'] for p in self.__dict__['passes']]
         return [Pass.deserialize(**p) for p in self.__dict__['passes']]
 
