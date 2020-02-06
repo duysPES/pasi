@@ -1,5 +1,6 @@
 import pprint
 from pysrc.bson import Bson
+from typing import *
 
 
 class Pass:
@@ -27,13 +28,8 @@ class Pass:
         return pp.pformat(self.serialize())
 
     def summary(self):
-        string = \
-        f"""
-        {str(self)}
-        
-        Logs
-        {self.Log}
-         """
+        string = f"{str(self)}\nLogs\n{self.__Log}"
+        return string
 
     def serialize(self):
         """
@@ -49,8 +45,6 @@ class Pass:
 
 
 class Job:
-    active_pass = None
-
     def __init__(self, *args, **kwargs):
         self.__dict__ = kwargs
 
@@ -65,13 +59,16 @@ class Job:
         if make_active:
             self.active_pass = new_pass
 
-    def set_active_pass(self, p: Pass):
-        self.active_pass = p
+    def get_active_pass(self) -> Pass:
+        return self.get_pass_by_num(self.active_pass)
 
-    def clear_active_pass(self):
-        self.active_pass = None
+    def get_pass_by_num(self, num: int) -> Pass:
+        for pass_obj in self.pass_objs():
+            if pass_obj.num == num:
+                return pass_obj
+        return None
 
-    def get_pass(self, name: str):
+    def get_pass_by_name(self, pass_name: str) -> Pass:
         pass_objs = self.pass_objs()
 
         for p in pass_objs:
@@ -79,7 +76,7 @@ class Job:
                 return p
         return None
 
-    def pass_objs(self):
+    def pass_objs(self) -> List[Pass]:
         # return [p['name'] for p in self.__dict__['passes']]
         return [Pass.deserialize(**p) for p in self.__dict__['passes']]
 

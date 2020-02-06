@@ -49,21 +49,31 @@ class Database:
 class Log(Database):
     EMPTY_LOG = {"contents": [], "job_id": None, "pass_name": None}
     _id = None
+    _raw = None
     cur_pass = None
+
+    @classmethod
+    def get_contents(cls, p: Pass) -> str:
+        """
+        supply a pass, and obtain the contents of said pass, if it
+        exists within database
+        """
+        log = cls(p)
+        return "".join(log._raw['contents'][str(p.num)])
 
     ## fix this!!
     def __init__(self, p: Pass):
         super(Log, self).__init__(p)
         # check to see if pass.job_id exists within Logs
         self.cur_pass = p
-        log = self._find_one("logs", {"job_id": p.job_id})
+        self._raw = self._find_one("logs", {"job_id": p.job_id})
 
-        if log is None:
+        if self._raw is None:
             init = {"job_id": p.job_id, "contents": {}}
             self._id = self._insert_one("logs",
                                         bson=init)  # this returns Log._id
         else:
-            self._id = log['_id']
+            self._id = self._raw['_id']
 
     def log(self, msg, status):
         if self._id is None:
