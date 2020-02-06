@@ -221,6 +221,7 @@ class DetachJob(ShootingPanel):
         win['button_inventory'].Update(disabled=True)
         win['main_menu'].set_element("Attach Job", 1)
         win['main_menu'].set_element("Detach Job", 0)
+        win['main_menu'].set_element("View Logs", 0)
         win['main_menu'].set_element("Passes", 0)
         win['main_menu'].reset()
         db.detach_job()
@@ -373,6 +374,7 @@ class Pasi:
                 menu: ShootingPanelMenuBar = win['main_menu']
                 menu.set_element("Attach Job", 0)
                 menu.set_element("Detach Job", 1)
+                menu.set_element("View Logs", 1)
                 menu.set_element("Passes", 1)
                 job: Job = db.attached_job()
                 self.attached_job = job
