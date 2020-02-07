@@ -147,7 +147,6 @@ class Inventory(ShootingPanel):
                 elif mode == ConnMode.MAIN:
                     pos, addr = msg
                     # update anticipated HERE
-                    # @TODO
                     sg = f"add switch: {pos}: [{addr}]"
                     return True
 

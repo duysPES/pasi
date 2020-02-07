@@ -1,3 +1,9 @@
+"""
+Holds all commands that are supported for the Pioneer Addressable Switches and Line Interface
+Signal Conditioning board, along with metadata that is useful for communication between
+such devices.
+"""
+
 from enum import Enum
 
 

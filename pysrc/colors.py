@@ -1,3 +1,8 @@
+"""
+Holds constants and variables that deal with the overall look
+and feel of the graphical UX for PASI
+"""
+
 import PySimpleGUI as sg
 
 FIRING_BUTTONS = {
@@ -31,6 +36,10 @@ __LOOK_AND_FEEL_TABLE = {
 
 
 def set_dark():
+    """
+    changes elements within pysimplegui to a dark
+    theme
+    """
     colors = __LOOK_AND_FEEL_TABLE["dark"]
     sg.SetOptions(background_color=colors['background'],
                   text_element_background_color=colors['background'],
