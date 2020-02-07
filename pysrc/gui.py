@@ -3,6 +3,7 @@ import tkinter as tk
 import PySimpleGUI as sg
 from multiprocessing import Process, Queue
 import datetime
+import time
 
 from pysrc import db, config
 from pysrc.db import Log
@@ -193,7 +194,7 @@ class ViewLogs(ShootingPanel):
         prev_file_buf = ""
 
         active_pass = db.attached_job().get_active_pass()
-
+        print("ATTACHED JOB", db.attached_job())
         while True:
             ev2, val2 = win2.read(timeout=3)
 
@@ -217,13 +218,20 @@ class ViewLogs(ShootingPanel):
 
 class DetachJob(ShootingPanel):
     @staticmethod
-    def run(win, event, values):
+    def run(parent, win, event, values):
         win['button_inventory'].Update(disabled=True)
         win['main_menu'].set_element("Attach Job", 1)
         win['main_menu'].set_element("Detach Job", 0)
         win['main_menu'].set_element("View Logs", 0)
         win['main_menu'].set_element("Passes", 0)
         win['main_menu'].reset()
+
+        attached_job = db.attached_job()
+        if attached_job is not None:
+            db.update_jobs(filter={"_id": attached_job._id},
+                           update_query={"$set": {
+                               "active_pass": None
+                           }})
         db.detach_job()
 
 
@@ -340,7 +348,7 @@ class Pasi:
                                 size=(self.width, self.height),
                                 keep_on_top=True,
                                 finalize=True)
-                DetachJob.run(win, event, values)
+                DetachJob.run(self, win, event, values)
                 win.TKroot.title(self.win_title(f": Shooting Interface"))
                 self.attached_job = None
 
@@ -380,15 +388,20 @@ class Pasi:
                 menu.set_element("Passes", 1)
                 job: Job = db.attached_job()
                 self.attached_job = job
-                menu.add_passes(job.pass_objs())
+
+                pass_objs = job.pass_objs()
+                menu.add_passes(pass_objs)
+
+                db.activate_pass(pass_objs[-1])
                 win.TKroot.title(
-                    self.win_title(f": < {job.name}:{job.client} >"))
+                    self.win_title(msg=job.for_win_title(pass_objs[-1])))
 
         else:
             if event == "New::new_pass":
                 # create a pass object and all output from shooting
                 # panel will be stored in currently selected pass
                 job = db.attached_job()
+                print("Job: ", self.attached_job)
                 new_pass: Pass = Pass(
                     len(self.attached_job.pass_objs()) + 1, job.id)
                 menu: ShootingPanelMenuBar = win['main_menu']
@@ -433,7 +446,7 @@ class Pasi:
             AttachJob.run(win, event, values)
 
         if 'Detach Job' == event:
-            DetachJob.run(win, event, values)
+            DetachJob.run(self, win, event, values)
             win.TKroot.title(self.win_title(f": Shooting Interface"))
             self.attached_job = None
 

@@ -81,7 +81,7 @@ class Job:
         return [Pass.deserialize(**p) for p in self.__dict__['passes']]
 
     def for_win_title(self, p=None):
-        x = f":{str(p)}" if p is not None else ""
+        x = f":Pass[{p.num}]" if p is not None else ""
         return f"< {self.name}:{self.client}{x} >"
 
     def keys(self):

@@ -59,9 +59,13 @@ class Log(Database):
         exists within database
         """
         log = cls(p)
-        return "".join(log._raw['contents'][str(p.num)])
+        key = str(p.num)
 
-    ## fix this!!
+        try:
+            return "".join(log._raw['contents'][key])
+        except Exception:
+            return ""
+
     def __init__(self, p: Pass):
         super(Log, self).__init__(p)
         # check to see if pass.job_id exists within Logs
@@ -74,6 +78,7 @@ class Log(Database):
                                         bson=init)  # this returns Log._id
         else:
             self._id = self._raw['_id']
+            self._raw = self._find_one("logs", {"_id": self._id})
 
     def log(self, msg, status):
         if self._id is None:
@@ -99,6 +104,7 @@ class Log(Database):
 
     def __exit__(self, type, value, tb):
         self._id = None
+        self._raw = None
 
 
 class ConfigDB(Database):
@@ -207,6 +213,8 @@ class JobHandler(Database):
         """
         simply set the attached job flag in db to null
         """
+        # set currently attached jobs - active pass to null
+
         self._update('attach',
                      filter=self.ATTACH_JOB_CRITERIA,
                      update_query={"$set": {
@@ -226,6 +234,23 @@ class JobHandler(Database):
             return Job(**bson)
         except TypeError:
             return None
+
+    def activate_pass(self, p: Pass):
+        job = self.find_job_by_id(p.job_id)
+
+        result = False
+        for jp in job.pass_objs():
+            if jp.num == p.num:
+                result = True
+                break
+        if not result:
+            raise IndexError("trying to activate a pass that doesn't exist")
+
+        matched_count = self.update_jobs(
+            filter={"name": job.name},
+            update_query={"$set": {
+                "active_pass": p.num
+            }})
 
     def add_pass(self, p: Pass, make_active=False):
         """
