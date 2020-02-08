@@ -1,0 +1,8 @@
+[package]
+name = "rpasi"
+version = "0.1.0"
+authors = ["duysPES <duys@pioneeres.com"]
+edition = "2018"
+
+[dependencies]
+
