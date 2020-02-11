@@ -25,6 +25,12 @@ else:
 
 
 class ShootingPanel:
+    """
+    Base functions that maniuplate GUI within 
+    the shooting panel section of the app.
+
+    All sub-classes uses the same function `SubClass.run(win, events, values)`
+    """
     @staticmethod
     def set_window_title(win, msg):
         msg = f"PASI v{config.pasi('version')} {msg}"
@@ -76,6 +82,9 @@ class ShootingPanel:
 
 
 class ChangeExpectedAmount(ShootingPanel):
+    """
+    Changes the Expected Amount for switches
+    """
     @staticmethod
     def run(win, event, values):
         win.Hide()
@@ -106,6 +115,9 @@ class ChangeExpectedAmount(ShootingPanel):
 
 
 class Inventory(ShootingPanel):
+    """
+    Executes the Inventory procedure. Inventorying switches on the line
+    """
     @staticmethod
     def send_mode(win, mode, payload):
         if mode == ConnMode.DEBUG:
@@ -181,6 +193,10 @@ class Inventory(ShootingPanel):
 
 
 class ViewLogs(ShootingPanel):
+    """
+    brings up Logs associated with the currently selected
+    Pass that is connected to a specific job.
+    """
     @staticmethod
     def run(win, event, values):
         win.Hide()
@@ -192,30 +208,44 @@ class ViewLogs(ShootingPanel):
                          keep_on_top=True)
         prev_file_buf = ""
 
-        active_pass = db.attached_job().get_active_pass()
-        print("ATTACHED JOB", db.attached_job())
-        while True:
-            ev2, val2 = win2.read(timeout=3)
+        try:
+            active_pass = db.attached_job().get_active_pass()
+            while True:
+                ev2, val2 = win2.read(timeout=3)
 
-            buffer = Log.get_contents(active_pass)
+                # TODO: Find a better way to retrieve log contents of pass,
+                # current implementation creates a new class instance
+                # every call
+                buffer = Log.get_contents(active_pass)
 
-            if prev_file_buf != buffer:
-                win2['log_view'](buffer)
-                prev_file_buf = buffer
+                if prev_file_buf != buffer:
+                    win2['log_view'](buffer)
+                    prev_file_buf = buffer
 
-            # with open((log.LOG_PATH / "gui.log").resolve(), "r") as l:
-            #     buffer = l.read()
-            #     if prev_file_buf != buffer:
-            #         win2['log_view'](buffer)
-            #         prev_file_buf = buffer
+                # with open((log.LOG_PATH / "gui.log").resolve(), "r") as l:
+                #     buffer = l.read()
+                #     if prev_file_buf != buffer:
+                #         win2['log_view'](buffer)
+                #         prev_file_buf = buffer
 
-            if ev2 is None or ev2 == "Exit":
-                win2.close()
-                break
+                if ev2 is None or ev2 == "Exit":
+                    win2.close()
+                    break
+        except IndexError:
+            # there are no passes for this job.
+            sg.PopupError("There are no passes attached to this job.",
+                          keep_on_top=True)
+
+        win2.close()
         win.UnHide()
 
 
 class DetachJob(ShootingPanel):
+    """
+    Detaches the Job for shooting panel.
+    Sets attached_job in db to null, and changes
+    elements to make certain things uneditable.
+    """
     @staticmethod
     def run(parent, win, event, values):
         win['button_inventory'].Update(disabled=True)
@@ -235,6 +265,10 @@ class DetachJob(ShootingPanel):
 
 
 class AttachJob(ShootingPanel):
+    """
+    Displays the list of all jobs in database and attaches 
+    selected job in database.
+    """
     @staticmethod
     def run(win, event, values):
 
@@ -281,14 +315,16 @@ class AttachJob(ShootingPanel):
             return
 
 
-def no_exit():
-    return
-
-
 class Pasi:
+    """
+    Main app class, handles Job Planner and Shooting Interface GUIs.
+    """
     inventory = False
 
     def win_title(self, msg=""):
+        """
+        Change the window title 
+        """
         return f"PASI v{config.pasi('version')} {msg}"
 
     def __init__(self):
@@ -308,6 +344,9 @@ class Pasi:
         self.attached_job = None
 
     def loop(self):
+        """
+        main loop of the app, everything happens here.
+        """
         shooting_win_active = False
         job_win_active = False
         async_ = config.pasi('async_timeout')
@@ -373,6 +412,9 @@ class Pasi:
         config.write_ini()
 
     def handle_shooting_interface(self, win, event, values):
+        """
+        Spawns the GUI for Shooting Interface and handles all reactions here.
+        """
         if event is None or event == "Exit":
             return False
 
@@ -389,20 +431,29 @@ class Pasi:
                 self.attached_job = job
 
                 pass_objs = job.pass_objs()
-                menu.add_passes(pass_objs)
 
-                db.activate_pass(pass_objs[-1])
-                win.TKroot.title(
-                    self.win_title(msg=job.for_win_title(pass_objs[-1])))
+                if len(pass_objs) > 0:
+                    menu.add_passes(pass_objs)
+                    db.activate_pass(pass_objs[-1])
+
+                    win_msg = job.for_win_title(pass_objs[-1])
+                else:
+                    # have win_msg just show name and client:
+                    win_msg = f"< {job.name}:{job.client} >"
+
+                win.TKroot.title(self.win_title(msg=win_msg))
 
         else:
             if event == "New::new_pass":
                 # create a pass object and all output from shooting
                 # panel will be stored in currently selected pass
-                job = db.attached_job()
+                self.attached_job = db.attached_job()
+
                 print("Job: ", self.attached_job)
                 new_pass: Pass = Pass(
-                    len(self.attached_job.pass_objs()) + 1, job.id)
+                    len(self.attached_job.pass_objs()) + 1,
+                    self.attached_job.id)
+
                 menu: ShootingPanelMenuBar = win['main_menu']
 
                 # add active pass
@@ -413,7 +464,8 @@ class Pasi:
                 # add to database and make new pass active
                 db.add_pass(new_pass, make_active=True)
                 win.TKroot.title(
-                    self.win_title(msg=job.for_win_title(new_pass)))
+                    self.win_title(
+                        msg=self.attached_job.for_win_title(new_pass)))
 
         if self.attached_job is not None:
             if event in [str(p) for p in self.attached_job.pass_objs()]:
@@ -471,6 +523,9 @@ class Pasi:
         return True
 
     def handle_job_planner(self, win, event, values):
+        """
+        spawns the GUI for job planning and handles all reactions here.
+        """
         if event is None or event == "Exit":
             return False
 
@@ -508,6 +563,10 @@ class Pasi:
         return True
 
     def __restart(self):
+        """
+        Helper code to restart the app.
+        First writes the current config settings in database to flat file.
+        """
         config.write_ini()
         python = sys.executable
         os.execl(python, python, *sys.argv)

@@ -13,6 +13,8 @@ import json
 from pysrc.job import Job, Pass
 from pysrc.bson import Bson
 
+_DB = pymongo.MongoClient("localhost", 27017)['db']
+
 
 class Database:
     """
@@ -21,11 +23,12 @@ class Database:
     ATTACH_JOB_CRITERIA = {'_id': 0}
 
     def __init__(self, *args, **kwargs):
-        self.db = pymongo.MongoClient("localhost", 27017)['db']
+        self.db = _DB
         self.db.jobs.create_index([('name', pymongo.ASCENDING)], unique=True)
         self.db.logs.create_index([('job_id', pymongo.ASCENDING)], unique=True)
 
         # create a single uid instance of attach
+
         self._update(col='attach',
                      filter=self.ATTACH_JOB_CRITERIA,
                      update_query={"$set": {
@@ -88,18 +91,18 @@ class Log(Database):
         supply a pass, and obtain the contents of said pass, if it
         exists within database
         """
+
         log = cls(p)
         key = str(p.num)
-
         try:
             return "".join(log._raw['contents'][key])
         except Exception:
             return ""
 
     def __init__(self, p: Pass):
-        super(Log, self).__init__(p)
 
         # check to see if pass.job_id exists within Logs
+        self.db = _DB
         self.cur_pass = p
         self._raw = self._find_one("logs", {"job_id": p.job_id})
 
@@ -151,7 +154,9 @@ class ConfigDB(Database):
 
     """
     def __init__(self):
-        super(ConfigDB, self).__init__()
+        # super(ConfigDB, self).__init__(reset_attach=False)
+        # self.db = pymongo.MongoClient("localhost", 27017)['db']
+        self.db = _DB
         self.ini = (pathlib.Path(__file__).parent.parent /
                     "config.json").resolve()
         # set default config files, with collection: 'config'
@@ -264,7 +269,14 @@ class JobHandler(Database):
 
     def all_jobs(self):
         """
-        TODO: pick up here for commenting code
+        returns all job records in database.
+        In a format of 
+
+        ```python
+        jobs = {
+            'job_name': <Object: Job>
+        }
+        ```
         """
         all_jobs = self._find_all_records('jobs')
         jobs = {}
@@ -317,6 +329,11 @@ class JobHandler(Database):
             return None
 
     def activate_pass(self, p: Pass):
+        """
+        Change the 'active_pass' field for specific job
+        that is tied to Pass in arg
+        """
+
         job = self.find_job_by_id(p.job_id)
 
         result = False
