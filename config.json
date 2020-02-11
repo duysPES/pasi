@@ -8,7 +8,7 @@
         "async_timeout": 10,
         "height": 1200,
         "theme": "light",
-        "version": "0.1.0",
+        "version": "0.1.1",
         "width": 800
     },
     "switches": {
