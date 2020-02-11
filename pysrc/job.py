@@ -114,7 +114,7 @@ class Job:
         pass_objs = self.pass_objs()
 
         for p in pass_objs:
-            if str(p) == name:
+            if str(p) == pass_name:
                 return p
         return None
 

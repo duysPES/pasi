@@ -110,7 +110,8 @@ class JobPlannerUpdatedb(JobPlanner):
     def run(win, event, values):
         if JobPlanner.form_ok(values, ignore=["main_menu", "passes"]):
             bson = Bson(values.copy())
-            JobPlanner.remove_from_values(bson, to_remove=["main_menu"])
+            JobPlanner.remove_from_values(bson,
+                                          to_remove=["main_menu", "passes"])
             bson.clean_bson().add_date()
             filt = {"name": values['name']}
             result = db.update_jobs(filter=filt, update_query={"$set": bson})

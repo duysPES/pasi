@@ -463,6 +463,12 @@ class Pasi:
 
                 # add to database and make new pass active
                 db.add_pass(new_pass, make_active=True)
+
+                # add an example log to pass
+                with Log(new_pass) as l:
+                    l.log(
+                        f"Pass{new_pass.num} created for <Job {self.attached_job.id}>",
+                        "info")
                 win.TKroot.title(
                     self.win_title(
                         msg=self.attached_job.for_win_title(new_pass)))
