@@ -181,15 +181,16 @@ class Inventory(ShootingPanel):
 
         port = config.lisc('port')
         baudrate = config.lisc("baudrate")
-        # with LISC(port=port, baudrate=baudrate, timeout=3) as lisc:
-        #     queuer.add('inventory', Queue())
+        with LISC(port=port, baudrate=baudrate, timeout=3) as lisc:
+            # queuer.add('inventory', Queue())
 
-        #     Pasi.log("Spawning thread for inventory run", 'info')
-        #     thread = Process(target=lisc.do_inventory,
-        #                      args=(expected_switches, ))
-        #     threader.add('inventory', thread)
-        #     queuer.send('inventory', 'start')
-        #     thread.start()
+            Pasi.log("Spawning thread for inventory run", 'info')
+            thread = Process(target=lisc.do_inventory,
+                             args=(expected_switches, ))
+            # threader.add('inventory', thread)
+            # queuer.send('inventory', 'start')
+            # threader.start('inventory')
+            thread.start()
 
 
 class ViewLogs(ShootingPanel):

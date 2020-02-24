@@ -2,14 +2,14 @@
     "_id": 0,
     "lisc": {
         "baudrate": 9600,
-        "port": "/dev/ttyUSB0"
+        "port": "COM3"
     },
     "pasi": {
         "async_timeout": 10,
-        "height": 1200,
+        "height": 900,
         "theme": "light",
         "version": "0.1.1",
-        "width": 800
+        "width": 600
     },
     "switches": {
         "expected": 2

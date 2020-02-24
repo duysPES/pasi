@@ -21,6 +21,10 @@ class __Threader:
                         LogType.gui)
             thread.join()
 
+    def start(self, name):
+        thread = self.get(name)
+        thread.start()
+
 
 class __Queuer:
     __queues = dict()
