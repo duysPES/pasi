@@ -6,8 +6,8 @@ import argparse
 
 def screen_size_setup():
     # h, w = 0, 0
-    config.update("pasi", 'width', 600)
-    config.update("pasi", 'height', 900)
+    config.update("pasi", 'width', 360)
+    config.update("pasi", 'height', 640)
     return True
     # monitors = get_monitors()
     # for m in monitors:
