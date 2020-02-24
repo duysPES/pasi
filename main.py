@@ -8,6 +8,7 @@ def screen_size_setup():
     # h, w = 0, 0
     config.update("pasi", 'width', 600)
     config.update("pasi", 'height', 900)
+    return True
     # monitors = get_monitors()
     # for m in monitors:
     #     if h < m.height:
