@@ -6,7 +6,6 @@ import pprint
 import pymongo
 
 config: ConfigDB = ConfigDB()
-# config = Config()
 db: JobHandler = JobHandler()
 
 
