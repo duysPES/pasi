@@ -328,6 +328,14 @@ class JobHandler(Database):
         except TypeError:
             return None
 
+    def active_pass(self):
+        """
+        returns the pass number for attached job
+        """
+
+        job: Job = self.attached_job()
+        return Pass(job.active_pass, job.id)
+
     def activate_pass(self, p: Pass):
         """
         Change the 'active_pass' field for specific job

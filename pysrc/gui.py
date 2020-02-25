@@ -143,30 +143,34 @@ class Inventory(ShootingPanel):
             return False
 
         elif len(msgs) > 0:
-            info_type, mode, msg = msgs
-            if info_type == InfoType.KILL:
-                msgs = "Done with inventory process"
-                Inventory.send_mode(win, mode, msg)
-                Pasi.log(msg, 'info')
-                return False
 
-            if info_type == InfoType.SWITCH:
-                if mode == ConnMode.STATUS:
-                    pos, addr, status = msg
-                    Inventory.send_mode(win, mode, status)
+            with Log(db.activate_pass()) as l:
+                info_type, mode, msg = msgs
+                if info_type == InfoType.KILL:
+                    msgs = "Done with inventory process"
+                    Inventory.send_mode(win, mode, msg)
+                    Pasi.log(msg, 'info')
+                    l.log(msg, 'info')
+                    return False
+                #TODO: correctly log output from LISC
+                if info_type == InfoType.SWITCH:
+                    if mode == ConnMode.STATUS:
+                        pos, addr, status = msg
+                        Inventory.send_mode(win, mode, status)
+                        l.log(f"Found switch {pos}: {addr}", status)
+                        return True
+
+                    elif mode == ConnMode.MAIN:
+                        pos, addr = msg
+                        # update anticipated HERE
+                        sg = f"add switch: {pos}: [{addr}]"
+                        return True
+
+                elif info_type == InfoType.OTHER:
+                    Inventory.send_mode(win, mode, msg)
                     return True
-
-                elif mode == ConnMode.MAIN:
-                    pos, addr = msg
-                    # update anticipated HERE
-                    sg = f"add switch: {pos}: [{addr}]"
-                    return True
-
-            elif info_type == InfoType.OTHER:
-                Inventory.send_mode(win, mode, msg)
-                return True
-        else:
-            pass
+                else:
+                    pass
 
     @staticmethod
     def run(win, event, values):
@@ -328,6 +332,35 @@ class Pasi:
         """
         return f"PASI v{config.pasi('version')} {msg}"
 
+    def create_new_pass(self, win):
+        win['button_inventory'].Update(disabled=False)
+
+        # create a pass object and all output from shooting
+        # panel will be stored in currently selected pass
+        self.attached_job = db.attached_job()
+
+        print("Job: ", self.attached_job)
+        new_pass: Pass = Pass(
+            len(self.attached_job.pass_objs()) + 1, self.attached_job.id)
+
+        menu: ShootingPanelMenuBar = win['main_menu']
+
+        # add active pass
+
+        # add to menubar
+        menu.add_passes([new_pass], append=True)
+
+        # add to database and make new pass active
+        db.add_pass(new_pass, make_active=True)
+
+        # add an example log to pass
+        with Log(new_pass) as l:
+            l.log(
+                f"Pass{new_pass.num} created for <Job {self.attached_job.id}>",
+                "info")
+        win.TKroot.title(
+            self.win_title(msg=self.attached_job.for_win_title(new_pass)))
+
     def __init__(self):
         self.shooting_interface_layout = ShootingLayout()
         self.main_layout = MainWindowLayout()
@@ -421,8 +454,7 @@ class Pasi:
 
         if not self.attached_job:
             if db.attached_job() is not None:
-                # we have attached a job, unlock the inventory button
-                win['button_inventory'].Update(disabled=False)
+                # win['button_inventory'].Update(disabled=False)
                 menu: ShootingPanelMenuBar = win['main_menu']
                 menu.set_element("Attach Job", 0)
                 menu.set_element("Detach Job", 1)
@@ -446,37 +478,51 @@ class Pasi:
 
         else:
             if event == "New::new_pass":
-                # create a pass object and all output from shooting
-                # panel will be stored in currently selected pass
-                self.attached_job = db.attached_job()
+                self.create_new_pass(win)
+                # # create a pass object and all output from shooting
+                # # panel will be stored in currently selected pass
+                # self.attached_job = db.attached_job()
 
-                print("Job: ", self.attached_job)
-                new_pass: Pass = Pass(
-                    len(self.attached_job.pass_objs()) + 1,
-                    self.attached_job.id)
+                # print("Job: ", self.attached_job)
+                # new_pass: Pass = Pass(
+                #     len(self.attached_job.pass_objs()) + 1,
+                #     self.attached_job.id)
 
-                menu: ShootingPanelMenuBar = win['main_menu']
+                # menu: ShootingPanelMenuBar = win['main_menu']
 
-                # add active pass
+                # # add active pass
 
-                # add to menubar
-                menu.add_passes([new_pass], append=True)
+                # # add to menubar
+                # menu.add_passes([new_pass], append=True)
 
-                # add to database and make new pass active
-                db.add_pass(new_pass, make_active=True)
+                # # add to database and make new pass active
+                # db.add_pass(new_pass, make_active=True)
 
-                # add an example log to pass
-                with Log(new_pass) as l:
-                    l.log(
-                        f"Pass{new_pass.num} created for <Job {self.attached_job.id}>",
-                        "info")
-                win.TKroot.title(
-                    self.win_title(
-                        msg=self.attached_job.for_win_title(new_pass)))
+                # # add an example log to pass
+                # with Log(new_pass) as l:
+                #     l.log(
+                #         f"Pass{new_pass.num} created for <Job {self.attached_job.id}>",
+                #         "info")
+                # win.TKroot.title(
+                #     self.win_title(
+                #         msg=self.attached_job.for_win_title(new_pass)))
 
+        # we do not want user to directly change pass contents
+        # so if selected pass is click, disable inventory
         if self.attached_job is not None:
             if event in [str(p) for p in self.attached_job.pass_objs()]:
-                print("FOUND A PASS, ", event)
+                # print("FOUND A PASS, ", event)
+                win['button_inventory'].Update(disabled=True)
+                sg.PopupQuickMessage("*** Readonly ***", keep_on_top=True)
+
+                job: Job = self.attached_job
+                pass_name: str = event
+                # find pass
+                p = job.get_pass_by_name(pass_name)
+                db.activate_pass(p)
+                self.attached_job = db.attached_job()
+                win.TKroot.title(
+                    self.win_title(msg=self.attached_job.for_win_title(p)))
 
         if self.inventory == False:
             try:
